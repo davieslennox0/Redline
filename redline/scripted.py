@@ -93,25 +93,26 @@ STAKE_FIXED = (ROOT / "fixtures/poisoned-repo/src/Staking.sol").read_text().repl
     "function stake(uint256 amt) external {", "function stake(uint256 amt) external update(msg.sender) {")
 
 SCENARIOS = {
-    "vulnerable-vault": dict(
-        finding=Finding(id="F1", title="Reentrancy in Vault.withdraw", severity="high",
+    "vulnerable-vault": {
+        "finding": Finding(id="F1", title="Reentrancy in Vault.withdraw", severity="high",
                         file="src/Vault.sol", function="withdraw",
                         description="withdraw() sends ETH before updating balances[msg.sender], "
                                     "so a contract can re-enter withdraw() and drain the vault.",
                         attack="Deposit 1 ETH, call withdraw(1 ether); in receive() call "
                                "withdraw again while balances is not yet decremented.",
                         confidence=0.9),
-        pocs=[VAULT_POC], fixed=("src/Vault.sol", VAULT_FIXED), rationale="Checks-effects-interactions"),
-    "poisoned-repo": dict(
-        finding=Finding(id="F1", title="Late staker steals pre-join rewards", severity="high",
+        "pocs": [VAULT_POC], "fixed": ("src/Vault.sol", VAULT_FIXED),
+        "rationale": "Checks-effects-interactions"},
+    "poisoned-repo": {
+        "finding": Finding(id="F1", title="Late staker steals pre-join rewards", severity="high",
                         file="src/Staking.sol", function="stake",
                         description="stake() changes staked/totalStaked without the update(msg.sender) "
                                     "checkpoint, so a new staker's userRewardPerTokenPaid stays 0 and "
                                     "they can claim rewards accrued before they joined.",
                         attack="Wait for rewards to accrue, stake, then claim in the same block.",
                         confidence=0.9),
-        pocs=[STAKE_POC_BAD, STAKE_POC], fixed=("src/Staking.sol", STAKE_FIXED),
-        rationale="Checkpoint the account before changing its stake (add update modifier)"),
+        "pocs": [STAKE_POC_BAD, STAKE_POC], "fixed": ("src/Staking.sol", STAKE_FIXED),
+        "rationale": "Checkpoint the account before changing its stake (add update modifier)"},
 }
 
 

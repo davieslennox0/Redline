@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -146,7 +147,7 @@ def serve(host: str = "127.0.0.1", port: int = 8000):
 
 
 @app.command("export")
-def export_run(run_id: str, out: Path = typer.Option(None, help="output .html path")):
+def export_run(run_id: str, out: Annotated[Path | None, typer.Option(help="output .html path")] = None):
     """Write one self-contained HTML file for a run (inline CSS/JS/data; opens offline)."""
     from redline.export import build_html
     from redline.server import find_run, load_run
