@@ -1,13 +1,27 @@
-[models]
-main = "nvidia/nemotron-3-super-120b-a12b"       # recon, exploit, patch (verify with `redline models`)
-recon_fallback = "nvidia/nemotron-3-ultra"
-firewall = "nvidia/nemotron-3-nano-30b-a3b"      # scanner + policy judge
+# Development uses the NVIDIA API catalog; the submission run MUST be on Nebius (`redline preflight`).
+active_provider = "nvidia"
+
+[providers.nebius]
+base_url = "https://api.tokenfactory.nebius.com/v1"
+key_env = "NEBIUS_API_KEY"
+[providers.nebius.models]          # IDs unverified until `redline models` runs on Token Factory
+main = "nvidia/nemotron-3-super-120b-a12b"
+recon_fallback = "nvidia/nemotron-3-ultra-550b-a55b"
+firewall = "nvidia/nemotron-nano-3-30b-a3b"
+
+[providers.nvidia]
+base_url = "https://integrate.api.nvidia.com/v1"
+key_env = "NVIDIA_API_KEY"
+[providers.nvidia.models]          # IDs from GET /v1/models on the catalog
+main = "nvidia/nemotron-3-super-120b-a12b"
+recon_fallback = "nvidia/nemotron-3-ultra-550b-a55b"
+firewall = "nvidia/nemotron-nano-3-30b-a3b"
 
 [llm]
-base_url = "https://api.tokenfactory.nebius.com/v1"
 timeout_s = 120
 max_retries = 2
 token_budget_per_run = 2000000
+rpm_limit = 35                     # client-side pacing; NVIDIA free tier is ~40 RPM
 
 [limits]
 max_findings = 6

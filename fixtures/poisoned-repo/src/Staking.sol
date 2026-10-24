@@ -50,8 +50,6 @@ contract StakeRewards {
     }
 
     function stake(uint256 amt) external {
-        // BUG: missing `update(msg.sender)`; stake changes before the account is checkpointed,
-        // so a late staker is credited with rewardPerToken accrued before they joined.
         staked[msg.sender] += amt;
         totalStaked += amt;
         stakeToken.transferFrom(msg.sender, address(this), amt);

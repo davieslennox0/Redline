@@ -17,8 +17,14 @@ class Models(BaseModel):
     firewall: str
 
 
-class LLMCfg(BaseModel):
+class Provider(BaseModel):
     base_url: str
+    key_env: str
+    models: Models
+
+
+class LLMCfg(BaseModel):
+    rpm_limit: int = 0
     timeout_s: int = 120
     max_retries: int = 2
     token_budget_per_run: int = 2_000_000
@@ -44,17 +50,30 @@ class FirewallCfg(BaseModel):
 
 
 class Config(BaseModel):
-    models: Models
+    active_provider: str
+    providers: dict[str, Provider]
     llm: LLMCfg
     limits: Limits
     sandbox: SandboxCfg
     firewall: FirewallCfg
+
+    @property
+    def provider(self) -> Provider:
+        return self.providers[self.active_provider]
+
+    @property
+    def models(self) -> Models:
+        return self.provider.models
 
 
 def load_config(path: Path | None = None) -> Config:
     load_dotenv(ROOT / ".env")
     p = path or ROOT / "config.toml"
     cfg = Config(**tomllib.loads(p.read_text()))
+    if os.environ.get("REDLINE_PROVIDER"):
+        cfg.active_provider = os.environ["REDLINE_PROVIDER"]
+    if cfg.active_provider not in cfg.providers:
+        raise SystemExit(f"unknown provider {cfg.active_provider!r}")
     if os.environ.get("REDLINE_SOLC"):
         cfg.sandbox.solc_path = os.environ["REDLINE_SOLC"]
     return cfg

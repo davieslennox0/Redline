@@ -19,28 +19,67 @@ con = Console()
 
 @app.command()
 def models():
-    """List Nemotron models on Token Factory and test-complete with main + firewall models."""
+    """List Nemotron models for the active provider; test main + firewall models."""
+    import os
+
+    from pydantic import BaseModel
+
     from redline.llm import LLM
 
+    class Ping(BaseModel):
+        status: str
+        n: int
+
     cfg = load_config()
-    require_env("NEBIUS_API_KEY")
-    llm = LLM(cfg)
-    ids = sorted(m.id for m in llm.client.models.list().data)
-    nemo = [i for i in ids if "nemotron" in i.lower()]
+    p = cfg.provider
+    con.print(f"provider: [bold]{cfg.active_provider}[/bold] ({p.base_url})")
+    if not os.environ.get(p.key_env):
+        con.print(f"[yellow]{p.key_env} not set[/yellow]: listing models only (unauthenticated)")
+        import httpx
+
+        ids = sorted(m["id"] for m in httpx.get(p.base_url + "/models", timeout=30).json()["data"])
+    else:
+        llm = LLM(cfg)
+        ids = sorted(m.id for m in llm.client.models.list().data)
     t = Table("Nemotron models available")
-    for i in nemo:
+    for i in (i for i in ids if "nemotron" in i.lower()):
         t.add_row(i)
     con.print(t)
     con.print(f"[dim]{len(ids)} models total[/dim]")
+    if not os.environ.get(p.key_env):
+        raise typer.Exit(1)
     for role, mid in (("main", cfg.models.main), ("firewall", cfg.models.firewall)):
         if mid not in ids:
             con.print(f"[red]{role}: {mid} NOT FOUND[/red] - fix config.toml")
             continue
-        out = llm.chat(mid, [{"role": "user", "content": "Reply with the single word: ready"}],
-                       role=role, max_tokens=64)
-        s = llm.stats[-1]
-        con.print(f"[green]{role}[/green] {mid}: {out.strip()[:40]!r} "
-                  f"({s.prompt_tokens}+{s.completion_tokens} tok, {s.latency_s:.1f}s)")
+        try:
+            llm.chat(mid, [{"role": "user", "content": "Reply with the single word: ready"}],
+                     role=role, max_tokens=64)
+            s = llm.stats[-1]
+            msg = f"[green]{role}[/green] {mid}: ok ({s.latency_s:.1f}s, {s.provider})"
+            try:
+                llm.structured(mid, [{"role": "user", "content":
+                               'Reply with ONLY this JSON: {"status": "ok", "n": 1}'}], Ping,
+                               role=role + "-json", max_tokens=128)
+                msg += f"; JSON ok ({llm.stats[-1].latency_s:.1f}s)"
+            except Exception as e:
+                msg += f"; [red]JSON FAILED[/red] {str(e)[:80]}"
+            con.print(msg)
+        except Exception as e:
+            con.print(f"[red]{role} {mid} call failed:[/red] {str(e)[:200]}")
+
+
+@app.command()
+def preflight():
+    """Submission guard: fails unless the active provider is Nebius Token Factory."""
+    cfg = load_config()
+    if cfg.active_provider != "nebius":
+        con.print(f"[bold red]PREFLIGHT FAILED[/bold red]: active_provider={cfg.active_provider!r}. "
+                  "The hackathon requires the final run on Nebius Token Factory. "
+                  "Set active_provider = \"nebius\" in config.toml (and REDLINE_PROVIDER unset).")
+        raise typer.Exit(1)
+    require_env(cfg.provider.key_env)
+    con.print("[green]preflight ok[/green]: provider=nebius")
 
 
 @app.command("sandbox-test")
@@ -75,9 +114,25 @@ def firewall_test(command: str = typer.Argument(..., help="shell command to eval
 
 
 @app.command()
-def audit(repo: Path):
-    """Full audit loop (M2+)."""
-    raise typer.Exit("audit loop lands in M2")
+def audit(repo: Path, no_patch: bool = False, no_research: bool = False):
+    """Audit a Foundry repo end to end."""
+    from redline.agent import orchestrator
+    from redline.llm import LLM
+
+    cfg = load_config()
+    llm = LLM(cfg)
+    con.print(f"provider: [bold]{cfg.active_provider}[/bold]")
+    res = orchestrator.audit(repo, cfg, llm, log=con.print, do_patch=not no_patch,
+                             do_research=not no_research)
+    t = Table("id", "sev", "status", "patch", "title")
+    for f in res.findings:
+        pt = "-" if not f.patch else ("[green]fixed[/green]" if f.patch.applied else "[red]no[/red]")
+        t.add_row(f.finding.id, f.finding.severity, f.status, pt, f.finding.title)
+    con.print(t)
+    con.print(f"quarantined spans: {len(res.quarantined)}; firewall denials: "
+              f"{sum(e['verdict'] == 'deny' for e in res.firewall_log)}; "
+              f"tokens: {sum(c['prompt_tokens'] + c['completion_tokens'] for c in res.calls)}")
+    con.print(f"report: {res.out_dir}/report.json")
 
 
 if __name__ == "__main__":

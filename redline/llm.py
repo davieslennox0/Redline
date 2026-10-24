@@ -17,6 +17,7 @@ T = TypeVar("T", bound=BaseModel)
 
 @dataclass
 class CallStat:
+    provider: str
     model: str
     role: str
     prompt_tokens: int
@@ -30,8 +31,11 @@ class LLM:
     stats: list[CallStat] = field(default_factory=list)
 
     def __post_init__(self):
-        self.client = OpenAI(base_url=self.cfg.llm.base_url, api_key=require_env("NEBIUS_API_KEY"),
-                             timeout=self.cfg.llm.timeout_s, max_retries=2)
+        p = self.cfg.provider
+        self.provider = self.cfg.active_provider
+        self._last_call = 0.0
+        self.client = OpenAI(base_url=p.base_url, api_key=require_env(p.key_env),
+                             timeout=self.cfg.llm.timeout_s, max_retries=4)
 
     @property
     def total_tokens(self) -> int:
@@ -41,13 +45,23 @@ class LLM:
              max_tokens: int = 4096) -> str:
         if self.total_tokens > self.cfg.llm.token_budget_per_run:
             raise RuntimeError("token budget exhausted for this run")
+        self._pace()
         t0 = time.perf_counter()
         r = self.client.chat.completions.create(model=model, messages=messages,
                                                 temperature=temperature, max_tokens=max_tokens)
         u = r.usage
-        self.stats.append(CallStat(model, role, u.prompt_tokens if u else 0,
+        self.stats.append(CallStat(self.provider, model, role, u.prompt_tokens if u else 0,
                                    u.completion_tokens if u else 0, time.perf_counter() - t0))
         return r.choices[0].message.content or ""
+
+    def _pace(self) -> None:
+        """Client-side rate limit so free-tier RPM caps are not hit."""
+        rpm = self.cfg.llm.rpm_limit
+        if rpm:
+            wait = self._last_call + 60.0 / rpm - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+        self._last_call = time.monotonic()
 
     def structured(self, model: str, messages: list[dict], schema: type[T], role: str = "",
                    **kw) -> T:

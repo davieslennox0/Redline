@@ -28,6 +28,7 @@ class FirewallLog:
             "reason": d.reason,
             "confidence": d.confidence,
             "latency_ms": round(d.latency_ms, 2),
+            "provider": d.provider,
         }
         with self._lock:
             self.entries.append(e)

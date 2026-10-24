@@ -3,7 +3,16 @@ name = "redline"
 version = "0.1.0"
 description = "Autonomous smart-contract security agent that proves findings by executing them, behind an agent firewall."
 requires-python = ">=3.11"
-dependencies = ["openai>=1.50", "pydantic>=2.7", "typer>=0.12", "rich>=13", "tavily-python>=0.5", "jinja2>=3.1", "python-dotenv>=1.0"]
+dependencies = [
+    "openai>=1.50",
+    "pydantic>=2.7",
+    "typer>=0.12",
+    "rich>=13",
+    "tavily-python>=0.5",
+    "jinja2>=3.1",
+    "python-dotenv>=1.0",
+    "httpx>=0.28.1",
+]
 
 [project.scripts]
 redline = "redline.cli:app"
@@ -23,7 +32,7 @@ line-length = 100
 exclude = ["fixtures", "jobs"]
 
 [tool.ruff.lint]
-ignore = ["BLE001", "PLW1510", "FURB167"]
+ignore = ["BLE001", "PLW1510", "FURB167", "ISC004"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

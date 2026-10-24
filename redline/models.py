@@ -34,6 +34,7 @@ class FirewallDecision(BaseModel):
     confidence: float = 1.0
     latency_ms: float = 0.0
     needs_l2: bool = False  # L1 allowed, but the call is unusual: ask the policy model
+    provider: str = ""  # which LLM provider served an L2/scanner model call
 
 
 class Finding(BaseModel):
@@ -64,3 +65,78 @@ class ForgeRun(BaseModel):
     @property
     def all_passed(self) -> bool:
         return self.ok and bool(self.results) and all(r.passed for r in self.results)
+
+
+# ---- LLM output schemas (every structured reply is validated against one of these) ----
+
+class ReconOut(BaseModel):
+    findings: list[Finding]
+
+
+class PoCDraft(BaseModel):
+    contract_name: str = Field(description="Name of the Foundry test contract")
+    code: str = Field(description="Complete Solidity test file")
+    explanation: str = ""
+
+
+class FileEdit(BaseModel):
+    path: str
+    content: str = Field(description="Complete new file content")
+
+
+class PatchDraft(BaseModel):
+    edits: list[FileEdit]
+    rationale: str = ""
+
+
+class JudgeOut(BaseModel):
+    verdict: Literal["allow", "deny"]
+    reason: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class ScanOut(BaseModel):
+    injected_lines: list[int] = []
+    reason: str = ""
+
+
+class Quarantine(BaseModel):
+    file: str
+    start_line: int
+    end_line: int
+    detector: str  # "regex" | "model"
+    reason: str
+    excerpt: str  # truncated original text, kept for the report only (never shown to the agent)
+
+
+class Citation(BaseModel):
+    title: str
+    url: str
+    snippet: str
+
+
+class PoCResult(BaseModel):
+    confirmed: bool
+    attempts: int
+    test_file: str = ""
+    code: str = ""
+    output: str = ""
+    note: str = ""
+
+
+class PatchResult(BaseModel):
+    applied: bool
+    attempts: int
+    diff: str = ""
+    poc_blocked: bool = False
+    suite_green: bool = False
+    output: str = ""
+    note: str = ""
+
+
+class FindingReport(BaseModel):
+    finding: Finding
+    citations: list[Citation] = []
+    poc: PoCResult | None = None
+    patch: PatchResult | None = None
+    status: Literal["confirmed", "unconfirmed"] = "unconfirmed"
