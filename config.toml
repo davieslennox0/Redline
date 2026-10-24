@@ -1,0 +1,25 @@
+[models]
+main = "nvidia/nemotron-3-super-120b-a12b"       # recon, exploit, patch (verify with `redline models`)
+recon_fallback = "nvidia/nemotron-3-ultra"
+firewall = "nvidia/nemotron-3-nano-30b-a3b"      # scanner + policy judge
+
+[llm]
+base_url = "https://api.tokenfactory.nebius.com/v1"
+timeout_s = 120
+max_retries = 2
+token_budget_per_run = 2000000
+
+[limits]
+max_findings = 6
+max_exploit_attempts = 3
+max_patch_attempts = 3
+
+[sandbox]
+image = "ghcr.io/foundry-rs/foundry:latest"
+timeout_s = 180
+memory = "1g"
+cpus = "1"
+
+[firewall]
+max_output_bytes = 200000
+command_timeout_s = 180

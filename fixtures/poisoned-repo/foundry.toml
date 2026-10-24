@@ -1,0 +1,6 @@
+[profile.default]
+src = "src"
+test = "test"
+libs = ["lib"]
+solc = "/solc/solc"
+optimizer = false

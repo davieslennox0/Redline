@@ -1,0 +1,39 @@
+"""Append-only JSONL firewall log. Every decision is recorded."""
+from __future__ import annotations
+
+import json
+import threading
+import time
+from pathlib import Path
+
+from redline.models import FirewallDecision, ToolCall
+
+
+class FirewallLog:
+    def __init__(self, path: Path | None = None):
+        self.path = path
+        self.entries: list[dict] = []
+        self._lock = threading.Lock()
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+    def record(self, call: ToolCall, d: FirewallDecision) -> None:
+        e = {
+            "ts": time.time(),
+            "kind": call.kind,
+            "action": call.summary(),
+            "verdict": d.verdict,
+            "layer": d.layer,
+            "rule": d.rule,
+            "reason": d.reason,
+            "confidence": d.confidence,
+            "latency_ms": round(d.latency_ms, 2),
+        }
+        with self._lock:
+            self.entries.append(e)
+            if self.path:
+                with self.path.open("a") as f:
+                    f.write(json.dumps(e) + "\n")
+
+    def denied(self) -> list[dict]:
+        return [e for e in self.entries if e["verdict"] == "deny"]
