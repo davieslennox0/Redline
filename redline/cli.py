@@ -135,5 +135,30 @@ def audit(repo: Path, no_patch: bool = False, no_research: bool = False):
     con.print(f"report: {res.out_dir}/report.json")
 
 
+@app.command()
+def serve(host: str = "127.0.0.1", port: int = 8000):
+    """Serve the run viewer (UI + /runs + SSE) for jobs/ and samples/."""
+    import uvicorn
+
+    from redline.server import create_app
+
+    uvicorn.run(create_app(), host=host, port=port, log_level="warning")
+
+
+@app.command("export")
+def export_run(run_id: str, out: Path = typer.Option(None, help="output .html path")):
+    """Write one self-contained HTML file for a run (inline CSS/JS/data; opens offline)."""
+    from redline.export import build_html
+    from redline.server import find_run, load_run
+
+    d = find_run(run_id)
+    if not d:
+        con.print(f"[red]no such run: {run_id}[/red]")
+        raise typer.Exit(1)
+    out = out or Path(f"{run_id}.html")
+    out.write_text(build_html(load_run(d)))
+    con.print(f"wrote {out} ({out.stat().st_size // 1024} KB)")
+
+
 if __name__ == "__main__":
     app()

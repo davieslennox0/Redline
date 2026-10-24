@@ -21,7 +21,8 @@ def list_files(ws: Path) -> list[str]:
     return out
 
 
-def load_repo(tools: Tools, llm=None, scan_model: str = "") -> tuple[dict[str, str], list[Quarantine]]:
+def load_repo(tools: Tools, llm=None, scan_model: str = "",
+              raw_out: dict[str, str] | None = None) -> tuple[dict[str, str], list[Quarantine]]:
     """Read every file through the gate and sanitize it. Returns (clean_files, quarantines)."""
     files: dict[str, str] = {}
     quarantined: list[Quarantine] = []
@@ -30,6 +31,8 @@ def load_repo(tools: Tools, llm=None, scan_model: str = "") -> tuple[dict[str, s
         clean, qs = scanner.scan(rel, raw, llm, scan_model)
         files[rel] = clean
         quarantined += qs
+        if qs and raw_out is not None:
+            raw_out[rel] = raw
     return files, quarantined
 
 

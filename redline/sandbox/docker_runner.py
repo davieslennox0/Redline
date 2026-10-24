@@ -18,9 +18,9 @@ SHARED_LIB = ROOT / "fixtures" / "_lib" / "forge-std"
 JOBS = ROOT / "jobs"
 
 
-def make_workspace(repo: Path, name: str | None = None) -> Path:
+def make_workspace(repo: Path, name: str | None = None, root: Path | None = None) -> Path:
     """Copy the repo into a fresh job workspace (never mutate the original)."""
-    ws = JOBS / (name or f"{repo.name}-{uuid.uuid4().hex[:6]}") / "ws"
+    ws = (root or JOBS) / (name or f"{repo.name}-{uuid.uuid4().hex[:6]}") / "ws"
     if ws.exists():
         shutil.rmtree(ws)
     shutil.copytree(repo, ws, symlinks=False,

