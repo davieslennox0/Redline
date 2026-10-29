@@ -19,7 +19,9 @@ def client():
 
 @pytest.mark.parametrize("name", SAMPLES)
 def test_sample_events_valid_and_flagged_scripted(name):
-    evs = [parse_event(json.dumps(e)) for e in read_events(ROOT / "samples" / name / "events.jsonl")]
+    evs = [
+        parse_event(json.dumps(e)) for e in read_events(ROOT / "samples" / name / "events.jsonl")
+    ]
     assert evs[0].type == "run_started" and evs[0].scripted and "SAMPLE" in evs[0].label
     assert evs[-1].type == "run_finished" and evs[-1].ok
     assert all(c.prompt_tokens == 0 for c in evs if c.type == "llm_call")  # no fake token numbers

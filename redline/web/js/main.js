@@ -8,10 +8,12 @@ let st = emptyState(), rep = null, view = "live", es = null, runs = [], runId = 
 function shell() {
   $("#app").innerHTML = `<header class="top"><div class="brand"><span class="logo">&#9632;</span> REDLINE</div>
     <div class="ctl">${EXPORT ? "" : `<select id="runsel"></select>`}<button id="replay" title="Replay this run">&#9654; Replay</button></div></header>
+    ${EXPORT ? "" : `<form id="auditform" class="auditform"><input id="auditurl" type="url" required placeholder="https://github.com/owner/foundry-repo" autocomplete="off"><button id="auditbtn">Audit repo</button></form><div id="auditmsg" class="auditmsg"></div>`}
     <nav class="tabs"><button data-v="live">Live</button><button data-v="report">Report</button><button data-v="firewall">Firewall</button></nav>
     <main><div id="banner"></div><div id="hdr"></div><div id="view"></div></main>`;
   document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { view = b.dataset.v; history.replaceState(null, "", `#${runId || ""}/${view}`); paint(); });
   $("#replay").onclick = () => start(true);
+  if (!EXPORT) $("#auditform").onsubmit = submitAudit;
   if (!EXPORT) $("#runsel").onchange = (e) => { runId = e.target.value; history.replaceState(null, "", `#${runId}/${view}`); start(true); };
 }
 
@@ -53,6 +55,28 @@ async function start(replay) {
   const types = ["run_started", "stage_started", "stage_finished", "finding_added", "poc_result", "patch_result", "firewall_decision", "input_quarantined", "llm_call", "run_finished"];
   for (const t of types) es.addEventListener(t, (m) => { reduce(st, JSON.parse(m.data)); schedule(); });
   es.addEventListener("end", () => { es.close(); fetch(`/runs/${encodeURIComponent(runId)}`).then((r) => r.json()).then((d) => { rep = d.report; schedule(); }); });
+}
+
+async function submitAudit(e) {
+  e.preventDefault();
+  const btn = $("#auditbtn"), msg = $("#auditmsg");
+  btn.disabled = true; msg.className = "auditmsg"; msg.textContent = "Cloning repository...";
+  try {
+    const r = await fetch("/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: $("#auditurl").value }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "request failed");
+    msg.textContent = "Audit started.";
+    for (let i = 0; i < 40; i++) {
+      if ((await fetch(`/runs/${d.run_id}`)).ok) break;
+      await new Promise((ok) => setTimeout(ok, 500));
+    }
+    runs = await (await fetch("/runs")).json();
+    $("#runsel").innerHTML = runs.map((x) => `<option value="${x.id}">${x.id}${x.scripted ? " (SAMPLE)" : ""} - ${x.status}</option>`).join("");
+    runId = d.run_id; $("#runsel").value = runId; view = "live";
+    history.replaceState(null, "", `#${runId}/live`);
+    start(false);
+  } catch (err) { msg.className = "auditmsg err"; msg.textContent = String(err.message || err); }
+  btn.disabled = false;
 }
 
 async function boot() {

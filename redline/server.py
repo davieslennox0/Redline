@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from redline.config import ROOT
 from redline.events import read_events
@@ -53,6 +54,19 @@ def load_run(d: Path) -> dict:
     }
 
 
+class AuditRequest(BaseModel):
+    url: str
+
+
+def _run_audit(path: Path, run_name: str) -> None:
+    from redline.agent import orchestrator
+    from redline.config import load_config
+    from redline.llm import LLM
+
+    cfg = load_config()
+    orchestrator.audit(path, cfg, LLM(cfg), run_name=run_name, label="web audit")
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Redline run viewer")
 
@@ -65,6 +79,15 @@ def create_app() -> FastAPI:
             for p in base.glob("*/events.jsonl")
         ]
         return sorted(out, key=lambda r: r["started"], reverse=True)
+
+    @app.post("/audit")
+    def start_audit(req: AuditRequest):
+        from redline import webaudit
+
+        try:
+            return {"run_id": webaudit.submit(req.url, _run_audit)}
+        except webaudit.AuditRejected as e:
+            raise HTTPException(e.status, str(e)) from None
 
     @app.get("/runs/{run_id}")
     def run(run_id: str):
