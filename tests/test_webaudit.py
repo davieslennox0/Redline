@@ -36,3 +36,19 @@ def test_endpoint_rejects_and_can_be_disabled(monkeypatch):
     assert c.post("/audit", json={"url": "https://evil.com/x/y"}).status_code == 422
     monkeypatch.setenv("REDLINE_WEB_AUDIT", "0")
     assert c.post("/audit", json={"url": "https://github.com/a/b"}).status_code == 403
+
+
+def test_per_ip_limit_six_per_12h(monkeypatch):
+    monkeypatch.setattr(
+        webaudit, "_clone", lambda o, r: (_ for _ in ()).throw(webaudit.AuditRejected("stop here"))
+    )
+    webaudit._hits.clear()
+    webaudit._busy.clear()
+    for _ in range(6):
+        with pytest.raises(webaudit.AuditRejected, match="stop here"):
+            webaudit.submit("https://github.com/a/b", lambda *a: None, ip="1.2.3.4")
+    with pytest.raises(webaudit.AuditRejected, match="per 12 hours") as e:
+        webaudit.submit("https://github.com/a/b", lambda *a: None, ip="1.2.3.4")
+    assert e.value.status == 429
+    with pytest.raises(webaudit.AuditRejected, match="stop here"):  # another IP is unaffected
+        webaudit.submit("https://github.com/a/b", lambda *a: None, ip="5.6.7.8")

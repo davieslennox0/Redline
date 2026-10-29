@@ -6,7 +6,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -67,6 +67,15 @@ def _run_audit(path: Path, run_name: str) -> None:
     orchestrator.audit(path, cfg, LLM(cfg), run_name=run_name, label="web audit")
 
 
+def client_ip(request: Request) -> str:
+    """Caddy (on loopback) sets X-Forwarded-For; trust it only when the peer is loopback."""
+    peer = request.client.host if request.client else "unknown"
+    xff = request.headers.get("x-forwarded-for", "")
+    if peer in ("127.0.0.1", "::1") and xff:
+        return xff.split(",")[0].strip()
+    return peer
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Redline run viewer")
 
@@ -81,11 +90,11 @@ def create_app() -> FastAPI:
         return sorted(out, key=lambda r: r["started"], reverse=True)
 
     @app.post("/audit")
-    def start_audit(req: AuditRequest):
+    def start_audit(req: AuditRequest, request: Request):
         from redline import webaudit
 
         try:
-            return {"run_id": webaudit.submit(req.url, _run_audit)}
+            return {"run_id": webaudit.submit(req.url, _run_audit, client_ip(request))}
         except webaudit.AuditRejected as e:
             raise HTTPException(e.status, str(e)) from None
 

@@ -158,6 +158,8 @@ def audit(
         for f in findings:
             fr = FindingReport(finding=f)
             log(f"[4/5] {f.id} {f.severity} {f.title}")
+            ctx = f"audit a Solidity repo; current finding {f.id}: {f.title[:120]}. Current stage: "
+            gate.task = ctx + "web research (Tavily search for public write-ups of this pattern)."
             if do_research:
                 with stage("research", f.id) as st:
                     try:
@@ -182,6 +184,7 @@ def audit(
                     )
                 )
 
+            gate.task = ctx + "exploit (writing and running a Foundry PoC test in test/)."
             with stage("exploit", f.id) as st:
                 fr.poc = exploit.run_exploit(llm, cfg, tools, f, files, on_attempt=on_attempt)
                 fr.status = "confirmed" if fr.poc.confirmed else "unconfirmed"
@@ -189,6 +192,7 @@ def audit(
                 st.detail = f"{fr.status} after {fr.poc.attempts} attempt(s)"
             log(f"  PoC: {fr.status} after {fr.poc.attempts} attempt(s)")
             if fr.poc.confirmed and do_patch:
+                gate.task = ctx + "patch (rewriting the vulnerable src/ file to fix this finding)."
                 with stage("patch", f.id) as st:
                     fr.patch = patch.run_patch(llm, cfg, tools, f, fr.poc, files)
                     st.ok, st.detail = fr.patch.applied, fr.patch.note[:300]

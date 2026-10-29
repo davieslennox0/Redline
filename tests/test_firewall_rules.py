@@ -82,7 +82,9 @@ def test_path_jail_blocks_symlink_escape(ws):
 def test_write_rules(ws):
     ok = chk(ws, kind="write", path="test/Exploit.t.sol", content="contract A {}")
     assert ok.verdict == "allow" and not ok.needs_l2
-    assert chk(ws, kind="write", path="src/Vault.sol", content="contract A {}").needs_l2
+    assert chk(ws, kind="write", path="src/NewFile.sol", content="contract A {}").needs_l2
+    (ws / "src" / "Vault.sol").write_text("contract V {}")
+    assert not chk(ws, kind="write", path="src/Vault.sol", content="contract A {}").needs_l2
     for path in [
         "../evil.sol",
         "/tmp/x.sol",

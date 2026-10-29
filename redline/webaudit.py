@@ -28,7 +28,8 @@ CLONE_TIMEOUT_S = 150
 
 _pool = ThreadPoolExecutor(max_workers=1)  # one audit at a time: single sandbox CPU, one API key
 _lock = threading.Lock()
-_recent: list[float] = []
+_hits: dict[str, list[float]] = {}  # client ip -> start times of audits in the window
+WINDOW_S = 12 * 3600
 _busy: set[str] = set()
 
 
@@ -86,22 +87,26 @@ def _clone(owner: str, repo: str) -> Path:
     return dest
 
 
-def submit(url: str, run_audit) -> str:
-    """Validate, rate-limit, clone, queue. Returns the run id. run_audit(path, run_name)."""
+def submit(url: str, run_audit, ip: str = "unknown") -> str:
+    """Validate, rate-limit per client IP, clone, queue. Returns the run id."""
     if os.environ.get("REDLINE_WEB_AUDIT", "1") == "0":
         raise AuditRejected("Web audits are disabled on this server.", 403)
     owner, repo = parse_url(url)
-    cap = int(os.environ.get("REDLINE_WEB_AUDITS_PER_HOUR", "6"))
+    cap = int(os.environ.get("REDLINE_WEB_AUDITS_PER_IP", "6"))
     key = f"{owner}/{repo}".lower()
     with _lock:
         now = time.time()
-        _recent[:] = [t for t in _recent if now - t < 3600]
-        if len(_recent) >= cap:
-            raise AuditRejected("Hourly audit limit reached; try again later.", 429)
+        mine = _hits[ip] = [t for t in _hits.get(ip, []) if now - t < WINDOW_S]
+        if len(mine) >= cap:
+            wait_h = (mine[0] + WINDOW_S - now) / 3600
+            raise AuditRejected(
+                f"Limit of {cap} audits per 12 hours per IP reached; try again in {wait_h:.1f} h.",
+                429,
+            )
         if _busy:
             raise AuditRejected("An audit is already running; try again when it finishes.", 429)
         _busy.add(key)
-        _recent.append(now)
+        mine.append(now)
     try:
         path = _clone(owner, repo)
     except Exception:

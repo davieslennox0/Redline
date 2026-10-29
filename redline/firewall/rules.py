@@ -158,8 +158,10 @@ def _write(call: ToolCall, ws: Path, t0: float) -> FirewallDecision:
         call.content,
     ):
         return _d("deny", "cheatcode", "cheatcode that touches host/network is forbidden", t0)
-    # src/ edits are patches (higher stakes) -> second opinion; test/ PoCs are routine
-    return _d("allow", "write-ok", "write inside jail", t0, needs_l2=(rel.parts[0] == "src"))
+    # Editing an existing src/ file is the patch step (bounded by the checks above, and the patch
+    # must pass the PoC + suite). Creating a NEW src/ file is unusual -> second opinion.
+    new_src = rel.parts[0] == "src" and not target.exists()
+    return _d("allow", "write-ok", "write inside jail", t0, needs_l2=new_src)
 
 
 def _read(call: ToolCall, ws: Path, t0: float) -> FirewallDecision:
