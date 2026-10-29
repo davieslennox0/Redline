@@ -3,6 +3,7 @@
 Execution capability (`GateToken`) is minted only here. Executors in sandbox/ require it, so
 code that skips the gate fails at the type/runtime level, not by convention.
 """
+
 from __future__ import annotations
 
 import time
@@ -38,8 +39,13 @@ class GateDenied(Exception):
 
 
 class Gate:
-    def __init__(self, workspace: Path, log: FirewallLog | None = None,
-                 policy: PolicyJudge | None = None, task: str = "audit a Solidity repository"):
+    def __init__(
+        self,
+        workspace: Path,
+        log: FirewallLog | None = None,
+        policy: PolicyJudge | None = None,
+        task: str = "audit a Solidity repository",
+    ):
         self.workspace = workspace.resolve()
         self.log = log or FirewallLog()
         self.policy = policy
@@ -53,8 +59,13 @@ class Gate:
             try:
                 d2 = self.policy.judge(call, self.task)
             except Exception as e:  # fail closed
-                d2 = FirewallDecision(verdict="deny", layer="L2", rule="policy-error",
-                                      reason=f"policy model failed: {e}", confidence=0.0)
+                d2 = FirewallDecision(
+                    verdict="deny",
+                    layer="L2",
+                    rule="policy-error",
+                    reason=f"policy model failed: {e}",
+                    confidence=0.0,
+                )
             d2.latency_ms = (time.perf_counter() - t0) * 1000
             self.log.record(call, d2)
             return d2 if d2.verdict == "deny" else d

@@ -1,4 +1,5 @@
 """Pydantic schemas shared across the system."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -68,6 +69,7 @@ class ForgeRun(BaseModel):
 
 
 # ---- LLM output schemas (every structured reply is validated against one of these) ----
+
 
 class ReconOut(BaseModel):
     findings: list[Finding]

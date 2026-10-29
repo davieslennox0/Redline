@@ -3,6 +3,7 @@
 The viewer renders purely from events.jsonl + report.json. Every event has `type`, `seq`
 (monotonic per run) and `ts` (unix seconds).
 """
+
 from __future__ import annotations
 
 import json
@@ -118,8 +119,16 @@ class RunFinished(_Base):
 
 
 Event = Annotated[
-    RunStarted | StageStarted | StageFinished | FindingAdded | PocResultEvent | PatchResultEvent
-    | FirewallDecisionEvent | InputQuarantined | LlmCall | RunFinished,
+    RunStarted
+    | StageStarted
+    | StageFinished
+    | FindingAdded
+    | PocResultEvent
+    | PatchResultEvent
+    | FirewallDecisionEvent
+    | InputQuarantined
+    | LlmCall
+    | RunFinished,
     Field(discriminator="type"),
 ]
 EventAdapter: TypeAdapter = TypeAdapter(Event)
@@ -155,10 +164,17 @@ class Emitter:
     def flush_llm(self, llm) -> None:
         """Emit llm_call events for any LLM calls made since the last flush."""
         stats = getattr(llm, "stats", [])
-        for s in stats[self._llm_flushed:]:
-            self.emit(LlmCall(role=s.role, model=s.model, provider=s.provider,
-                              prompt_tokens=s.prompt_tokens, completion_tokens=s.completion_tokens,
-                              latency_s=round(s.latency_s, 3)))
+        for s in stats[self._llm_flushed :]:
+            self.emit(
+                LlmCall(
+                    role=s.role,
+                    model=s.model,
+                    provider=s.provider,
+                    prompt_tokens=s.prompt_tokens,
+                    completion_tokens=s.completion_tokens,
+                    latency_s=round(s.latency_s, 3),
+                )
+            )
         self._llm_flushed = len(stats)
 
 

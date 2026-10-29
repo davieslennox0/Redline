@@ -5,17 +5,17 @@ active_provider = "nvidia"
 base_url = "https://api.tokenfactory.nebius.com/v1"
 key_env = "NEBIUS_API_KEY"
 [providers.nebius.models]          # IDs unverified until `redline models` runs on Token Factory
-main = "nvidia/nemotron-3-super-120b-a12b"
+main = "nvidia/nemotron-3.5-super-vl-120b-a12b"
 recon_fallback = "nvidia/nemotron-3-ultra-550b-a55b"
-firewall = "nvidia/nemotron-nano-3-30b-a3b"
+firewall = "nvidia/nemotron-3.5-lightning-30b-a3b"   # nano-3-30b 404s for this account
 
 [providers.nvidia]
 base_url = "https://integrate.api.nvidia.com/v1"
 key_env = "NVIDIA_API_KEY"
 [providers.nvidia.models]          # IDs from GET /v1/models on the catalog
-main = "nvidia/nemotron-3-super-120b-a12b"
+main = "nvidia/nemotron-3.5-super-vl-120b-a12b"
 recon_fallback = "nvidia/nemotron-3-ultra-550b-a55b"
-firewall = "nvidia/nemotron-nano-3-30b-a3b"
+firewall = "nvidia/nemotron-3.5-lightning-30b-a3b"   # nano-3-30b 404s for this account
 
 [llm]
 timeout_s = 120

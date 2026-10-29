@@ -1,4 +1,5 @@
 """Append-only JSONL firewall log. Every decision is recorded."""
+
 from __future__ import annotations
 
 import json

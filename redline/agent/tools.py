@@ -1,4 +1,5 @@
 """The agent's only hands. Every method routes through the firewall gate."""
+
 from __future__ import annotations
 
 import httpx
@@ -17,8 +18,10 @@ class Tools:
         return self.gate.run(ToolCall(kind="read", path=path), lambda t: fs.read_file(t, self.ws))
 
     def write(self, path: str, content: str, purpose: str = "") -> None:
-        self.gate.run(ToolCall(kind="write", path=path, content=content, purpose=purpose),
-                      lambda t: fs.write_file(t, self.ws))
+        self.gate.run(
+            ToolCall(kind="write", path=path, content=content, purpose=purpose),
+            lambda t: fs.write_file(t, self.ws),
+        )
 
     def forge(self, args: str, purpose: str = "") -> ForgeRun:
         call = ToolCall(kind="shell", command=f"forge {args}", purpose=purpose)
@@ -26,5 +29,11 @@ class Tools:
 
     def post_json(self, url: str, payload: dict, headers: dict, purpose: str = "") -> dict:
         call = ToolCall(kind="net", url=url, purpose=purpose)
-        return self.gate.run(call, lambda t: httpx.post(t.call.url, json=payload, headers=headers,
-                                                         timeout=30).raise_for_status().json())
+        return self.gate.run(
+            call,
+            lambda t: (
+                httpx.post(t.call.url, json=payload, headers=headers, timeout=30)
+                .raise_for_status()
+                .json()
+            ),
+        )

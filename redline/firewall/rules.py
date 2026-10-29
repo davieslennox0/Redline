@@ -2,6 +2,7 @@
 
 Deny wins. Anything not explicitly allowed is denied.
 """
+
 from __future__ import annotations
 
 import re
@@ -18,8 +19,18 @@ WRITE_ALLOW_DIRS = ("src", "test")  # relative to workspace
 WRITE_ALLOW_SUFFIX = (".sol",)
 
 FORGE_SUBCMDS = {"build", "test", "fmt", "inspect", "snapshot"}
-FORGE_DENY_FLAGS = {"--ffi", "--fork-url", "--rpc-url", "--broadcast", "--private-key",
-                    "--mnemonic", "--keystore", "--ledger", "--trezor", "--etherscan-api-key"}
+FORGE_DENY_FLAGS = {
+    "--ffi",
+    "--fork-url",
+    "--rpc-url",
+    "--broadcast",
+    "--private-key",
+    "--mnemonic",
+    "--keystore",
+    "--ledger",
+    "--trezor",
+    "--etherscan-api-key",
+}
 GIT_RO_SUBCMDS = {"status", "log", "diff", "show", "ls-files", "rev-parse", "blame"}
 READ_CMDS = {"cat", "ls", "head", "tail", "wc", "grep"}
 SHELLS = {"sh", "bash", "zsh", "dash", "ksh", "fish", "python", "python3", "node", "perl", "ruby"}
@@ -34,8 +45,14 @@ ENV_DUMP = re.compile(r"(^|\s)(env|printenv|export|set)(\s|$)")
 
 
 def _d(verdict: str, rule: str, reason: str, t0: float, needs_l2: bool = False) -> FirewallDecision:
-    return FirewallDecision(verdict=verdict, layer="L1", rule=rule, reason=reason,
-                            latency_ms=(time.perf_counter() - t0) * 1000, needs_l2=needs_l2)
+    return FirewallDecision(
+        verdict=verdict,
+        layer="L1",
+        rule=rule,
+        reason=reason,
+        latency_ms=(time.perf_counter() - t0) * 1000,
+        needs_l2=needs_l2,
+    )
 
 
 def _inside(workspace: Path, p: str) -> Path | None:
@@ -70,8 +87,12 @@ def _shell(call: ToolCall, ws: Path, t0: float) -> FirewallDecision:
     if "|" in cmd and re.search(r"\|\s*(sudo\s+)?(\S*/)?(" + "|".join(SHELLS) + r")\b", cmd):
         return _d("deny", "pipe-to-shell", "piping into a shell/interpreter is forbidden", t0)
     if SHELL_META.search(cmd):
-        return _d("deny", "shell-metachar",
-                  "pipes, redirects, chaining and substitution are not allowed", t0)
+        return _d(
+            "deny",
+            "shell-metachar",
+            "pipes, redirects, chaining and substitution are not allowed",
+            t0,
+        )
     try:
         argv = shlex.split(cmd)
     except ValueError as e:
@@ -131,8 +152,11 @@ def _write(call: ToolCall, ws: Path, t0: float) -> FirewallDecision:
         return _d("deny", "write-suffix", f"only {WRITE_ALLOW_SUFFIX} files may be written", t0)
     if len(call.content.encode()) > MAX_WRITE_BYTES:
         return _d("deny", "write-size", f"content exceeds {MAX_WRITE_BYTES} bytes", t0)
-    if re.search(r"vm\.ffi|vm\.(readFile|writeFile|removeFile|setEnv|envString|envBytes32"
-                 r"|projectRoot|createFork|rpcUrl)|vm\.readLine|vm\.closeFile", call.content):
+    if re.search(
+        r"vm\.ffi|vm\.(readFile|writeFile|removeFile|setEnv|envString|envBytes32"
+        r"|projectRoot|createFork|rpcUrl)|vm\.readLine|vm\.closeFile",
+        call.content,
+    ):
         return _d("deny", "cheatcode", "cheatcode that touches host/network is forbidden", t0)
     # src/ edits are patches (higher stakes) -> second opinion; test/ PoCs are routine
     return _d("allow", "write-ok", "write inside jail", t0, needs_l2=(rel.parts[0] == "src"))

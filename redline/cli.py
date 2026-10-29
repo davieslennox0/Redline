@@ -1,4 +1,5 @@
 """Redline CLI."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,7 +15,9 @@ from redline.firewall.log import FirewallLog
 from redline.models import ToolCall
 from redline.sandbox import docker_runner
 
-app = typer.Typer(no_args_is_help=True, help="Redline: prove smart-contract bugs by executing them.")
+app = typer.Typer(
+    no_args_is_help=True, help="Redline: prove smart-contract bugs by executing them."
+)
 con = Console()
 
 
@@ -54,14 +57,27 @@ def models():
             con.print(f"[red]{role}: {mid} NOT FOUND[/red] - fix config.toml")
             continue
         try:
-            llm.chat(mid, [{"role": "user", "content": "Reply with the single word: ready"}],
-                     role=role, max_tokens=64)
+            llm.chat(
+                mid,
+                [{"role": "user", "content": "Reply with the single word: ready"}],
+                role=role,
+                max_tokens=64,
+            )
             s = llm.stats[-1]
             msg = f"[green]{role}[/green] {mid}: ok ({s.latency_s:.1f}s, {s.provider})"
             try:
-                llm.structured(mid, [{"role": "user", "content":
-                               'Reply with ONLY this JSON: {"status": "ok", "n": 1}'}], Ping,
-                               role=role + "-json", max_tokens=128)
+                llm.structured(
+                    mid,
+                    [
+                        {
+                            "role": "user",
+                            "content": 'Reply with ONLY this JSON: {"status": "ok", "n": 1}',
+                        }
+                    ],
+                    Ping,
+                    role=role + "-json",
+                    max_tokens=128,
+                )
                 msg += f"; JSON ok ({llm.stats[-1].latency_s:.1f}s)"
             except Exception as e:
                 msg += f"; [red]JSON FAILED[/red] {str(e)[:80]}"
@@ -75,9 +91,11 @@ def preflight():
     """Submission guard: fails unless the active provider is Nebius Token Factory."""
     cfg = load_config()
     if cfg.active_provider != "nebius":
-        con.print(f"[bold red]PREFLIGHT FAILED[/bold red]: active_provider={cfg.active_provider!r}. "
-                  "The hackathon requires the final run on Nebius Token Factory. "
-                  "Set active_provider = \"nebius\" in config.toml (and REDLINE_PROVIDER unset).")
+        con.print(
+            f"[bold red]PREFLIGHT FAILED[/bold red]: active_provider={cfg.active_provider!r}. "
+            "The hackathon requires the final run on Nebius Token Factory. "
+            'Set active_provider = "nebius" in config.toml (and REDLINE_PROVIDER unset).'
+        )
         raise typer.Exit(1)
     require_env(cfg.provider.key_env)
     con.print("[green]preflight ok[/green]: provider=nebius")
@@ -123,16 +141,21 @@ def audit(repo: Path, no_patch: bool = False, no_research: bool = False):
     cfg = load_config()
     llm = LLM(cfg)
     con.print(f"provider: [bold]{cfg.active_provider}[/bold]")
-    res = orchestrator.audit(repo, cfg, llm, log=con.print, do_patch=not no_patch,
-                             do_research=not no_research)
+    res = orchestrator.audit(
+        repo, cfg, llm, log=con.print, do_patch=not no_patch, do_research=not no_research
+    )
     t = Table("id", "sev", "status", "patch", "title")
     for f in res.findings:
-        pt = "-" if not f.patch else ("[green]fixed[/green]" if f.patch.applied else "[red]no[/red]")
+        pt = (
+            "-" if not f.patch else ("[green]fixed[/green]" if f.patch.applied else "[red]no[/red]")
+        )
         t.add_row(f.finding.id, f.finding.severity, f.status, pt, f.finding.title)
     con.print(t)
-    con.print(f"quarantined spans: {len(res.quarantined)}; firewall denials: "
-              f"{sum(e['verdict'] == 'deny' for e in res.firewall_log)}; "
-              f"tokens: {sum(c['prompt_tokens'] + c['completion_tokens'] for c in res.calls)}")
+    con.print(
+        f"quarantined spans: {len(res.quarantined)}; firewall denials: "
+        f"{sum(e['verdict'] == 'deny' for e in res.firewall_log)}; "
+        f"tokens: {sum(c['prompt_tokens'] + c['completion_tokens'] for c in res.calls)}"
+    )
     con.print(f"report: {res.out_dir}/report.json")
 
 
@@ -147,7 +170,9 @@ def serve(host: str = "127.0.0.1", port: int = 8000):
 
 
 @app.command("export")
-def export_run(run_id: str, out: Annotated[Path | None, typer.Option(help="output .html path")] = None):
+def export_run(
+    run_id: str, out: Annotated[Path | None, typer.Option(help="output .html path")] = None
+):
     """Write one self-contained HTML file for a run (inline CSS/JS/data; opens offline)."""
     from redline.export import build_html
     from redline.server import find_run, load_run

@@ -2,6 +2,7 @@
 
 Emits events.jsonl (see redline/events.py) and writes report.json.
 """
+
 from __future__ import annotations
 
 import json
@@ -38,33 +39,69 @@ class AuditResult:
     models: dict[str, str] = field(default_factory=dict)
 
     def to_json(self) -> str:
-        d = {**self.__dict__, "findings": [f.model_dump() for f in self.findings],
-             "quarantined": [q.model_dump() for q in self.quarantined]}
+        d = {
+            **self.__dict__,
+            "findings": [f.model_dump() for f in self.findings],
+            "quarantined": [q.model_dump() for q in self.quarantined],
+        }
         return json.dumps(d, indent=2)
 
 
-def audit(repo: Path, cfg: Config, llm, log=print, do_patch: bool = True,
-          do_research: bool = True, run_name: str | None = None, scripted: bool = False,
-          label: str = "", out_root: Path | None = None) -> AuditResult:
+def audit(
+    repo: Path,
+    cfg: Config,
+    llm,
+    log=print,
+    do_patch: bool = True,
+    do_research: bool = True,
+    run_name: str | None = None,
+    scripted: bool = False,
+    label: str = "",
+    out_root: Path | None = None,
+) -> AuditResult:
     t0 = time.perf_counter()
     ws = docker_runner.make_workspace(repo.resolve(), name=run_name, root=out_root)
     run_id = ws.parent.name
     em = ev.Emitter(ws.parent / "events.jsonl")
 
     def on_fw(call, d, e):
-        em.emit(ev.FirewallDecisionEvent(layer=d.layer, kind=call.kind, action=e["action"],
-                                         verdict=d.verdict, rule=d.rule, reason=d.reason,
-                                         latency_ms=round(d.latency_ms, 3), provider=d.provider))
+        em.emit(
+            ev.FirewallDecisionEvent(
+                layer=d.layer,
+                kind=call.kind,
+                action=e["action"],
+                verdict=d.verdict,
+                rule=d.rule,
+                reason=d.reason,
+                latency_ms=round(d.latency_ms, 3),
+                provider=d.provider,
+            )
+        )
 
     flog = FirewallLog(ws.parent / "firewall.jsonl", on_record=on_fw)
     gate = Gate(ws, flog, policy=NanoPolicy(llm, cfg.models.firewall))
     tools = Tools(gate, cfg)
     models = {"main": cfg.models.main, "firewall": cfg.models.firewall}
     provider = getattr(llm, "provider", cfg.active_provider)
-    res = AuditResult(run_id=run_id, repo=str(repo), provider=provider,
-                      out_dir=str(ws.parent), scripted=scripted, label=label, models=models)
-    em.emit(ev.RunStarted(run_id=run_id, repo=repo.name, provider=provider,
-                          models=models, scripted=scripted, label=label))
+    res = AuditResult(
+        run_id=run_id,
+        repo=str(repo),
+        provider=provider,
+        out_dir=str(ws.parent),
+        scripted=scripted,
+        label=label,
+        models=models,
+    )
+    em.emit(
+        ev.RunStarted(
+            run_id=run_id,
+            repo=repo.name,
+            provider=provider,
+            models=models,
+            scripted=scripted,
+            label=label,
+        )
+    )
 
     class stage:  # context manager emitting stage_started / stage_finished
         def __init__(self, name, fid=""):
@@ -77,11 +114,16 @@ def audit(repo: Path, cfg: Config, llm, log=print, do_patch: bool = True,
 
         def __exit__(self, et, exc, tb):
             em.flush_llm(llm)
-            em.emit(ev.StageFinished(stage=self.name, finding_id=self.fid,
-                                     ok=self.ok and et is None,
-                                     duration_s=round(time.perf_counter() - self.t, 3),
-                                     detail=self.detail or (str(exc)[:300] if exc else ""),
-                                     citations=self.cites))
+            em.emit(
+                ev.StageFinished(
+                    stage=self.name,
+                    finding_id=self.fid,
+                    ok=self.ok and et is None,
+                    duration_s=round(time.perf_counter() - self.t, 3),
+                    detail=self.detail or (str(exc)[:300] if exc else ""),
+                    citations=self.cites,
+                )
+            )
 
     try:
         log("[1/5] baseline: forge test on the untouched repo")
@@ -94,10 +136,13 @@ def audit(repo: Path, cfg: Config, llm, log=print, do_patch: bool = True,
 
         log("[2/5] scan + load repo through the firewall")
         with stage("scan") as st:
-            files, res.quarantined = recon.load_repo(tools, llm, cfg.models.firewall,
-                                                     raw_out=res.quarantine_files)
+            files, res.quarantined = recon.load_repo(
+                tools, llm, cfg.models.firewall, raw_out=res.quarantine_files
+            )
             for q in res.quarantined:
-                log(f"  QUARANTINED {q.file}:{q.start_line}-{q.end_line} ({q.detector}: {q.reason})")
+                log(
+                    f"  QUARANTINED {q.file}:{q.start_line}-{q.end_line} ({q.detector}: {q.reason})"
+                )
                 em.emit(ev.InputQuarantined(**q.model_dump()))
             st.detail = f"{len(files)} files, {len(res.quarantined)} span(s) quarantined"
         warnings = [f"{q.file}:{q.start_line}-{q.end_line}" for q in res.quarantined]
@@ -116,16 +161,26 @@ def audit(repo: Path, cfg: Config, llm, log=print, do_patch: bool = True,
             if do_research:
                 with stage("research", f.id) as st:
                     try:
-                        fr.citations = research.research(tools, f, llm, cfg.models.firewall,
-                                                         res.quarantined)
+                        fr.citations = research.research(
+                            tools, f, llm, cfg.models.firewall, res.quarantined
+                        )
                     except Exception as e:
                         st.ok, st.detail = False, f"research failed: {e}"[:300]
                     st.cites = fr.citations
 
             def on_attempt(p, passed, fid=f.id):
-                em.emit(ev.PocResultEvent(finding_id=fid, attempt=p.attempts, passed=passed,
-                                          confirmed=passed, test_file=p.test_file, code=p.code,
-                                          output=p.output, note=p.note))
+                em.emit(
+                    ev.PocResultEvent(
+                        finding_id=fid,
+                        attempt=p.attempts,
+                        passed=passed,
+                        confirmed=passed,
+                        test_file=p.test_file,
+                        code=p.code,
+                        output=p.output,
+                        note=p.note,
+                    )
+                )
 
             with stage("exploit", f.id) as st:
                 fr.poc = exploit.run_exploit(llm, cfg, tools, f, files, on_attempt=on_attempt)
@@ -138,9 +193,18 @@ def audit(repo: Path, cfg: Config, llm, log=print, do_patch: bool = True,
                     fr.patch = patch.run_patch(llm, cfg, tools, f, fr.poc, files)
                     st.ok, st.detail = fr.patch.applied, fr.patch.note[:300]
                 p = fr.patch
-                em.emit(ev.PatchResultEvent(finding_id=f.id, applied=p.applied, attempts=p.attempts,
-                                            poc_blocked=p.poc_blocked, suite_green=p.suite_green,
-                                            diff=p.diff, output=p.output, note=p.note))
+                em.emit(
+                    ev.PatchResultEvent(
+                        finding_id=f.id,
+                        applied=p.applied,
+                        attempts=p.attempts,
+                        poc_blocked=p.poc_blocked,
+                        suite_green=p.suite_green,
+                        diff=p.diff,
+                        output=p.output,
+                        note=p.note,
+                    )
+                )
                 log(f"  patch: applied={p.applied} (attempts {p.attempts})")
             res.findings.append(fr)
         err = ""

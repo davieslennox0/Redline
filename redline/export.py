@@ -1,4 +1,5 @@
 """Build a single self-contained HTML file from the same web assets the server uses."""
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,10 @@ def build_html(data: dict) -> str:
     # `</` inside JSON must not terminate the script element
     payload = json.dumps(data).replace("</", "<\\/").replace("<!--", "<\\!--")
     title = f"Redline - {data['id']}"
-    return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-            f"<title>{title}</title><style>{css}</style></head><body><div id=\"app\"></div>"
-            f"<script>window.__REDLINE_DATA__ = {payload};</script>"
-            f"<script>(function(){{\n{js}\n}})();</script></body></html>")
+    return (
+        f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        f'<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<title>{title}</title><style>{css}</style></head><body><div id="app"></div>'
+        f"<script>window.__REDLINE_DATA__ = {payload};</script>"
+        f"<script>(function(){{\n{js}\n}})();</script></body></html>"
+    )

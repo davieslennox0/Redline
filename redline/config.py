@@ -1,4 +1,5 @@
 """Config loading: config.toml + env. Model IDs live only in config.toml."""
+
 from __future__ import annotations
 
 import os
