@@ -18,7 +18,7 @@ recon_fallback = "nvidia/nemotron-3-ultra-550b-a55b"
 firewall = "nvidia/nemotron-3.5-lightning-30b-a3b"   # nano-3-30b 404s for this account
 
 [llm]
-timeout_s = 120
+timeout_s = 300
 max_retries = 2
 token_budget_per_run = 2000000
 rpm_limit = 35                     # client-side pacing; NVIDIA free tier is ~40 RPM

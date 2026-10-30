@@ -26,7 +26,8 @@ def test_full_loop_confirms_and_patches_vault():
     assert f.status == "confirmed" and f.poc.confirmed
     assert f.patch and f.patch.applied and f.patch.poc_blocked and f.patch.suite_green
     assert "balances[msg.sender] -= amount" in f.patch.diff
-    assert any(e["layer"] == "L2" for e in res.firewall_log)  # src/ write consulted the policy
+    # patching an existing src/ file is an L1-allowed write (L2 is for new src files / net calls)
+    assert any(e["rule"] == "write-ok" and "src/" in e["action"] for e in res.firewall_log)
 
 
 def test_poisoned_repo_injection_never_reaches_the_agent():

@@ -39,7 +39,7 @@ class LLM:
             base_url=p.base_url,
             api_key=require_env(p.key_env),
             timeout=self.cfg.llm.timeout_s,
-            max_retries=4,
+            max_retries=2,
         )
 
     @property
@@ -96,7 +96,7 @@ class LLM:
         for attempt in range(self.cfg.llm.max_retries + 1):
             raw = self.chat(model, msgs, role=role, **kw)
             try:
-                return schema.model_validate(json.loads(_extract_json(raw)))
+                return schema.model_validate(json.loads(_extract_json(raw), strict=False))
             except (ValueError, ValidationError) as e:
                 err = str(e)[:1500]
                 msgs = msgs + [

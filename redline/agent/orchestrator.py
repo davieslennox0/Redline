@@ -17,7 +17,7 @@ from redline.config import Config
 from redline.firewall.gate import Gate
 from redline.firewall.log import FirewallLog
 from redline.firewall.policy import NanoPolicy
-from redline.models import FindingReport, Quarantine
+from redline.models import FindingReport, PatchResult, PoCResult, Quarantine
 from redline.sandbox import docker_runner
 
 
@@ -186,7 +186,12 @@ def audit(
 
             gate.task = ctx + "exploit (writing and running a Foundry PoC test in test/)."
             with stage("exploit", f.id) as st:
-                fr.poc = exploit.run_exploit(llm, cfg, tools, f, files, on_attempt=on_attempt)
+                try:
+                    fr.poc = exploit.run_exploit(llm, cfg, tools, f, files, on_attempt=on_attempt)
+                except Exception as e:  # one bad finding must not abort the whole audit
+                    fr.poc = PoCResult(
+                        confirmed=False, attempts=0, note=f"exploit error: {e}"[:400]
+                    )
                 fr.status = "confirmed" if fr.poc.confirmed else "unconfirmed"
                 st.ok = fr.poc.confirmed
                 st.detail = f"{fr.status} after {fr.poc.attempts} attempt(s)"
@@ -194,7 +199,12 @@ def audit(
             if fr.poc.confirmed and do_patch:
                 gate.task = ctx + "patch (rewriting the vulnerable src/ file to fix this finding)."
                 with stage("patch", f.id) as st:
-                    fr.patch = patch.run_patch(llm, cfg, tools, f, fr.poc, files)
+                    try:
+                        fr.patch = patch.run_patch(llm, cfg, tools, f, fr.poc, files)
+                    except Exception as e:
+                        fr.patch = PatchResult(
+                            applied=False, attempts=0, note=f"patch error: {e}"[:400]
+                        )
                     st.ok, st.detail = fr.patch.applied, fr.patch.note[:300]
                 p = fr.patch
                 em.emit(

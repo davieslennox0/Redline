@@ -62,7 +62,9 @@ def run_recon(llm, cfg, files: dict[str, str], warnings: list[str]) -> list[Find
         {"role": "user", "content": f"Audit this repository.{warn}\n\n{render_repo(files)}"},
     ]
     try:
-        out = llm.structured(cfg.models.main, msgs, ReconOut, role="recon", max_tokens=6000)
+        out = llm.structured(
+            cfg.models.main, msgs, ReconOut, role="recon", max_tokens=6000, thinking=False
+        )
     except RuntimeError:
         out = llm.structured(
             cfg.models.recon_fallback, msgs, ReconOut, role="recon-fallback", max_tokens=6000
