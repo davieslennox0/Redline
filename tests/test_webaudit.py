@@ -52,3 +52,12 @@ def test_per_ip_limit_six_per_12h(monkeypatch):
     assert e.value.status == 429
     with pytest.raises(webaudit.AuditRejected, match="stop here"):  # another IP is unaffected
         webaudit.submit("https://github.com/a/b", lambda *a: None, ip="5.6.7.8")
+
+
+def test_pin_offline_solc(tmp_path):
+    (tmp_path / "foundry.toml").write_text(
+        '[profile.default]\nsrc = "src"\nsolc_version = "0.8.19"\n[fmt]\nline_length = 100\n'
+    )
+    webaudit.pin_offline_solc(tmp_path)
+    t = (tmp_path / "foundry.toml").read_text()
+    assert 'solc = "/solc/solc"' in t and "0.8.19" not in t and 'src = "src"' in t

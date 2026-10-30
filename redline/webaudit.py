@@ -87,6 +87,23 @@ def _clone(owner: str, repo: str) -> Path:
     return dest
 
 
+def pin_offline_solc(repo: Path) -> None:
+    """The sandbox has no network, so point forge at the host solc mounted at /solc/solc."""
+    f = repo / "foundry.toml"
+    lines = [
+        ln
+        for ln in f.read_text().splitlines()
+        if not re.match(r"\s*(solc|solc_version|auto_detect_solc|offline)\s*=", ln)
+    ]
+    pin = ['solc = "/solc/solc"', "auto_detect_solc = false"]
+    if "[profile.default]" in lines:
+        i = lines.index("[profile.default]")
+        lines[i + 1 : i + 1] = pin
+    else:
+        lines = ["[profile.default]", *pin, *lines]
+    f.write_text("\n".join(lines) + "\n")
+
+
 def submit(url: str, run_audit, ip: str = "unknown") -> str:
     """Validate, rate-limit per client IP, clone, queue. Returns the run id."""
     if os.environ.get("REDLINE_WEB_AUDIT", "1") == "0":
@@ -109,6 +126,7 @@ def submit(url: str, run_audit, ip: str = "unknown") -> str:
         mine.append(now)
     try:
         path = _clone(owner, repo)
+        pin_offline_solc(path)
     except Exception:
         with _lock:
             _busy.discard(key)
