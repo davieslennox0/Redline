@@ -188,3 +188,15 @@ def export_run(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def report(run_id: str):
+    """Write report.md for a finished run (use `redline export` for the HTML page)."""
+    from redline.report.render import write_markdown
+    from redline.server import find_run
+
+    d = find_run(run_id)
+    if not d or not (d / "report.json").exists():
+        raise typer.BadParameter(f"no finished run {run_id!r}")
+    con.print(str(write_markdown(d)))

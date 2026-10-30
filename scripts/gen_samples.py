@@ -3,6 +3,7 @@
 Run:  uv run python scripts/gen_samples.py
 Output: samples/<run_id>/{events.jsonl,report.json,firewall.jsonl}  (workspace copy removed)
 """
+
 import shutil
 
 from redline.agent import orchestrator
@@ -16,9 +17,17 @@ def main() -> None:
     cfg = load_config()
     cfg.active_provider = cfg.active_provider  # provider recorded as configured; calls are mock
     for name in ("vulnerable-vault", "poisoned-repo"):
-        res = orchestrator.audit(ROOT / "fixtures" / name, cfg, ScriptedLLM(name), log=print,
-                                 do_research=False, run_name=f"sample-{name}", scripted=True,
-                                 label=LABEL, out_root=ROOT / "samples")
+        res = orchestrator.audit(
+            ROOT / "fixtures" / name,
+            cfg,
+            ScriptedLLM(name),
+            log=print,
+            do_research=False,
+            run_name=f"sample-{name}",
+            scripted=True,
+            label=LABEL,
+            out_root=ROOT / "samples",
+        )
         shutil.rmtree(ROOT / "samples" / res.run_id / "ws", ignore_errors=True)
 
 

